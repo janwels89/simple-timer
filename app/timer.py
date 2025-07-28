@@ -6,6 +6,7 @@ class TimerController:
         self.off_time = 5
         self.mode = None
         self.enabled = True
+        self.elapsed = 0
 
 
     def adjust_time(self, delta):
@@ -24,3 +25,28 @@ class TimerController:
     def decrease_time(self):
         self.adjust_time(-1)
 
+    def advance_time(self, seconds):
+        if not self.enabled:
+            return
+
+        time_left = seconds
+
+        while time_left > 0:
+            if self.mode == "ON":
+                remaining = self.on_time - self.elapsed
+                if time_left >= remaining:
+                    time_left -= remaining
+                    self.mode = "OFF"
+                    self.elapsed = 0
+                else:
+                    self.elapsed += time_left
+                    time_left = 0
+            else:  # OFF mode
+                remaining = self.off_time - self.elapsed
+                if time_left >= remaining:
+                    time_left -= remaining
+                    self.mode = "ON"
+                    self.elapsed = 0
+                else:
+                    self.elapsed += time_left
+                    time_left = 0
