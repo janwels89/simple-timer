@@ -1,4 +1,6 @@
- Scenario: Timer alternates ON and OFF based on configured times
+Feature: Timer Logic
+
+  Scenario: Timer alternates ON and OFF based on configured times
     Given the ON time is set to 3 seconds
     And the OFF time is set to 2 seconds
     And the timer is running
