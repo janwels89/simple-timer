@@ -1,0 +1,11 @@
+- When Key 3 Is Pressed => Select Timer OFF
+- When Key 1 is Pressed => select timer ON
+- When Key 2 is Pressed => Enable Timer / Disable Timer
+
+- When Joystick is turned up => Increase Time on Selection
+- When Joystick is turned down => Decrease time on Selection
+
+- Display Shows Two Rows:
+  - First Row Timer ON value and Counts value Down
+  - Second Row Timer OFF value and Counts value Down
+
