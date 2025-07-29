@@ -25,7 +25,7 @@ def main(debug=False):
         draw = ImageDraw.Draw(display.image)
         draw.rectangle((10, 10, display.width - 10, display.height - 10), outline=0, fill=0)
         display.ShowImage(display.getbuffer(display.image))
-        time.sleep(2)
+        time.sleep(1)
         display.hw.clear()
         logger.info("start timer")
 
@@ -42,12 +42,14 @@ def main(debug=False):
 
         while True:
             timer.update()
-            logger.debug("Timer status=%s elapsed=%s open=%s close=%s", timer.status, timer.elapsed, timer.open_time, timer.close_time)
+            logger.debug("Timer status=%s elapsed=%s open=%s close=%s", timer.status, timer.elapsed,
+                         timer.open_time, timer.close_time)
 
             display.update_numbers(timer)
             display.ShowImage(display.getbuffer(display.image))
-            logger.info("Status: %s, Elapsed: %.2fs, Open: %s, Close: %s", timer.status, timer.elapsed, timer.open_time, timer.close_time)
-            time.sleep(0.9)
+            logger.debug("Status: %s, Elapsed: %.2fs, Open: %s, Close: %s", timer.status, timer.elapsed,
+                        timer.open_time, timer.close_time)
+
     finally:
         if display is not None and hasattr(display, "hw") and hasattr(display.hw, "RPI"):
             try:
