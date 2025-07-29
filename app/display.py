@@ -49,8 +49,8 @@ class Display:
         self.height = self.hw.height
 
         # Use your custom font for both numbers and labels
-        self.font_number = self._get_font(FONT_PATH, 16)  # Large for numbers
-        self.font_label = self._get_font(FONT_PATH, 16)  # For "OPEN", "CLOSE"
+        self.font_number = self._get_font(FONT_PATH, 18)  # Large for numbers
+        self.font_label = self._get_font(FONT_PATH, 18)  # For "OPEN", "CLOSE"
         self.font_status = self._get_font(FONT_PATH, 10)  # Small for status
         self._create_background()
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
@@ -113,7 +113,7 @@ class Display:
         number_bbox = number_font.getbbox(number_str)
         number_w = number_bbox[2] - number_bbox[0]
         number_h = number_bbox[3] - number_bbox[1]
-        num_x = self.width - number_w - 5
+        num_x = self.width - number_w - 20
         num_y = y + max(0, (label_h - number_h) // 2) + 2
 
         self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
