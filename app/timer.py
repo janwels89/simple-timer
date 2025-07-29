@@ -11,16 +11,16 @@ class TimerController:
     def __init__(self):
         self.open_time = self.DEFAULT_OPEN_TIME
         self.close_time = self.DEFAULT_CLOSE_TIME
-        self.mode = "OPEN"  # default OPEN
+        self.status = "OPEN"  # default OPEN
         self.enabled = True
         self.elapsed = 0
         self.last_update_time = time.monotonic()  # for real-time ticking
         self.load_settings()
 
     def adjust_time(self, delta):
-        if self.mode == "OPEN":
+        if self.status == "OPEN":
             self.open_time = max(0, self.open_time + delta)
-        elif self.mode == "CLOSE":
+        elif self.status == "CLOSE":
             self.close_time = max(0, self.close_time + delta)
         else:
             raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
@@ -40,11 +40,11 @@ class TimerController:
         time_left = seconds
 
         while time_left > 0:
-            if self.mode == "OPEN":
+            if self.status == "OPEN":
                 remaining = self.open_time - self.elapsed
                 if time_left >= remaining:
                     time_left -= remaining
-                    self.mode = "CLOSE"
+                    self.status = "CLOSE"
                     self.elapsed = 0
                 else:
                     self.elapsed += time_left
@@ -53,7 +53,7 @@ class TimerController:
                 remaining = self.close_time - self.elapsed
                 if time_left >= remaining:
                     time_left -= remaining
-                    self.mode = "OPEN"
+                    self.status = "OPEN"
                     self.elapsed = 0
                 else:
                     self.elapsed += time_left

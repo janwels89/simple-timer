@@ -16,7 +16,7 @@ def step_set_close_time(context, seconds):
 @given("the timer is running")
 def step_timer_running(context):
     context.timer.enabled = True
-    context.timer.mode = "OPEN"
+    context.timer.status = "OPEN"
     context.timer.elapsed = 0
 
 @when('{seconds:d} seconds have passed')
@@ -26,7 +26,7 @@ def step_advance_time(context, seconds):
 @then('the output should be OPEN for {seconds:d} seconds')
 def step_check_output_open_duration(context, seconds):
     # Check the timer mode is OPEN
-    assert context.timer.mode == "OPEN", f"Expected mode OPEN, but got {context.timer.mode}"
+    assert context.timer.status == "OPEN", f"Expected mode OPEN, but got {context.timer.status}"
 
     # Check the OPEN time is as expected
     assert context.timer.open_time == seconds, f"Expected OPEN time {seconds}, but got {context.timer.open_time}"
@@ -43,7 +43,7 @@ def step_check_open_again_after(context, seconds):
     context.timer.advance_time(seconds)
 
     # Check the mode is OPEN
-    assert context.timer.mode == "OPEN", f"Expected mode OPEN after {seconds} seconds, but got {context.timer.mode}"
+    assert context.timer.status == "OPEN", f"Expected mode OPEN after {seconds} seconds, but got {context.timer.status}"
 
 
 @when("the device is rebooted")

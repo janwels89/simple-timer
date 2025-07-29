@@ -4,22 +4,22 @@ from features.steps.mocks.mock_sh1106 import SH1106
 
 @when("the user presses KEY3")
 def step_press_key3(context):
-    context.timer.mode = "OPEN"
+    context.timer.status = "OPEN"
 
 
 @then("the timer module selected should be OPEN")
 def step_check_timer_mode_on(context):
-    assert context.timer.mode == "OPEN", f"Expected mode 'OPEN', but got '{context.timer.mode}'"
+    assert context.timer.status == "OPEN", f"Expected mode 'OPEN', but got '{context.timer.status}'"
 
 
 @when("the user presses KEY1")
 def step_press_key1(context):
-    context.timer.mode = "CLOSE"
+    context.timer.status = "CLOSE"
 
 
 @then("the timer module selected should be CLOSE")
 def step_check_timer_mode_on(context):
-    assert context.timer.mode == "CLOSE", f"Expected mode 'CLOSE', but got '{context.timer.mode}'"
+    assert context.timer.status == "CLOSE", f"Expected mode 'CLOSE', but got '{context.timer.status}'"
 
 
 @given("the timer is disabled")

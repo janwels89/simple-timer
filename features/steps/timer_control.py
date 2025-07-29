@@ -9,28 +9,28 @@ from PIL import Image, ImageDraw, ImageFont
 def step_powered_on(context):
     context.timer = TimerController()
     context.display = Display(SH1106())
-    context.timer.mode = "OPEN"
+    context.timer.status = "OPEN"
 
 
 @given("a timer (OPEN or CLOSE) is selected")
 def step_timer_selected(context):
-    context.timer.mode = "OPEN"
+    context.timer.status = "OPEN"
 
 
 @given("the selected timer is currently set to {value:d} seconds")
 def step_set_timer_value(context, value):
-    if context.timer.mode == "OPEN":
+    if context.timer.status == "OPEN":
         context.timer.open_time = value
-    elif context.timer.mode == "CLOSE":
+    elif context.timer.status == "CLOSE":
         context.timer.close_time = value
     else:
         raise ValueError("Timer mode must be set to 'OPEN' or 'CLOSE' before setting time.")
 
 @when("the user moves the joystick {direction}")
 def step_move_joystick(context, direction):
-    if context.timer.mode == "OPEN":
+    if context.timer.status == "OPEN":
         context.previous_timer_value = context.timer.open_time
-    elif context.timer.mode == "CLOSE":
+    elif context.timer.status == "CLOSE":
         context.previous_timer_value = context.timer.close_time
     else:
         raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
@@ -65,9 +65,9 @@ def step_check_timer_changed(context, change):
     else:
         raise ValueError(f"Unknown change: {change}")
 
-    if context.timer.mode == "OPEN":
+    if context.timer.status == "OPEN":
         actual = context.timer.open_time
-    elif context.timer.mode == "CLOSE":
+    elif context.timer.status == "CLOSE":
         actual = context.timer.close_time
     else:
         raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
