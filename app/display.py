@@ -49,7 +49,7 @@ class Display:
         self.height = self.hw.height
 
         # Use your custom font for both numbers and labels
-        self.font_number = self._get_font(FONT_PATH, 28)  # Large for numbers
+        self.font_number = self._get_font(FONT_PATH, 16)  # Large for numbers
         self.font_label = self._get_font(FONT_PATH, 16)  # For "OPEN", "CLOSE"
         self.font_status = self._get_font(FONT_PATH, 10)  # Small for status
         self._create_background()
