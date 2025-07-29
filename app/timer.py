@@ -11,12 +11,12 @@ class TimerController:
     def __init__(self):
         self.open_time = self.DEFAULT_OPEN_TIME
         self.close_time = self.DEFAULT_CLOSE_TIME
-        self.status = "OPEN"  # default OPEN
+        self.status = "OPEN"
         self.mode = "loop"
         self.enabled = True
         self.elapsed = 0
-        self.last_update_time = time.monotonic()  # for real-time ticking
-        self.show_zero = False  # Show zero for current phase
+        self.last_update_time = time.monotonic()
+        self.show_zero = False
         self.load_settings()
 
     def adjust_time(self, delta):
@@ -35,65 +35,49 @@ class TimerController:
         self.adjust_time(-1)
 
     def advance_time(self, seconds):
-        """Testable, manual time simulation. Also used by update()."""
         if not self.enabled:
             return
 
         time_left = seconds
-
         while time_left > 0:
+            if self.show_zero:
+                # We just showed 0, now switch state and reset timer
+                self.show_zero = False
+                self.elapsed = 0
+                self.status = "CLOSE" if self.status == "OPEN" else "OPEN"
+                # continue to handle time_left for the new state
+                continue
+
             if self.status == "OPEN":
                 remaining = self.open_time - self.elapsed
-                if self.show_zero:
-                    # Just finished showing 0, now switch phase
-                    self.show_zero = False
-                    self.status = "CLOSE"
-                    self.elapsed = 0
-                elif remaining > 0:
-                    if time_left >= remaining:
-                        self.elapsed += remaining
-                        time_left -= remaining
-                        self.show_zero = True  # Show 0 for one tick
-                    else:
-                        self.elapsed += time_left
-                        time_left = 0
-                else:
-                    # If here, remaining == 0, but show_zero is not set
-                    self.show_zero = True
-                    break
-            else:  # CLOSE
+            else:
                 remaining = self.close_time - self.elapsed
-                if self.show_zero:
-                    self.show_zero = False
-                    self.status = "OPEN"
-                    self.elapsed = 0
-                elif remaining > 0:
-                    if time_left >= remaining:
-                        self.elapsed += remaining
-                        time_left -= remaining
-                        self.show_zero = True
-                    else:
-                        self.elapsed += time_left
-                        time_left = 0
-                else:
-                    self.show_zero = True
+
+            if remaining > 0:
+                if time_left >= remaining:
+                    self.elapsed += remaining
+                    time_left -= remaining
+                    self.show_zero = True  # will display 0 next
+                    # break so UI can show 0 before switching state
                     break
+                else:
+                    self.elapsed += time_left
+                    time_left = 0
+            else:
+                # If remaining already 0, immediately show zero for next tick
+                self.show_zero = True
+                break
 
     def update(self):
-        """Call regularly in a loop — updates based on real time"""
         if not self.enabled:
             return
-
         now = time.monotonic()
         delta = now - self.last_update_time
         self.last_update_time = now
         self.advance_time(delta)
 
     def save_settings(self):
-        data = {
-            "open_time": self.open_time,
-            "close_time": self.close_time
-        }
+        data = {"open_time": self.open_time, "close_time": self.close_time}
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f)
 
@@ -109,7 +93,6 @@ class TimerController:
                 self.close_time = self.DEFAULT_CLOSE_TIME
 
     def reset_settings(self):
-        """Delete the settings file and reset to defaults."""
         if os.path.exists(SETTINGS_FILE):
             os.remove(SETTINGS_FILE)
         self.open_time = self.DEFAULT_OPEN_TIME
