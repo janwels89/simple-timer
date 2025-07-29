@@ -7,10 +7,12 @@ from app.mock_hardware import WaveI2COLED
 @given("the OPEN time is set to {seconds:d} seconds")
 def step_set_open_time(context, seconds):
     context.timer.open_time = seconds
+    context.timer.save_settings()
 
 @given("the CLOSE time is set to {seconds:d} seconds")
 def step_set_close_time(context, seconds):
     context.timer.close_time = seconds
+    context.timer.save_settings()
 
 @given("the timer is running")
 def step_timer_running(context):
@@ -43,3 +45,26 @@ def step_check_open_again_after(context, seconds):
 
     # Check the mode is OPEN
     assert context.timer.mode == "OPEN", f"Expected mode OPEN after {seconds} seconds, but got {context.timer.mode}"
+
+
+@when("the device is rebooted")
+def step_reboot_device(context):
+    context.timer = TimerController()
+
+
+@then("the OPEN time should be {seconds:d} seconds")
+def step_check_open_time(context, seconds):
+    assert context.timer.open_time == seconds, (
+        f"Expected OPEN time {seconds}, but got {context.timer.open_time}"
+    )
+
+@then("the CLOSE time should be {seconds:d} seconds")
+def step_check_close_time(context, seconds):
+    assert context.timer.close_time == seconds, (
+        f"Expected CLOSE time {seconds}, but got {context.timer.close_time}"
+    )
+
+@when("the timer settings are reset")
+def step_reset_timer_settings(context):
+    # Use the controller's reset method for a clean abstraction
+    context.timer.reset_settings()
