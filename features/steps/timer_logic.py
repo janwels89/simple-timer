@@ -1,7 +1,6 @@
 from behave import given, when, then
-from time import sleep
 from app.timer import TimerController
-from features.steps.mocks.mock_sh1106 import SH1106
+
 
 @given("the OPEN time is set to {seconds:d} seconds")
 def step_set_open_time(context, seconds):
@@ -21,7 +20,8 @@ def step_timer_running(context):
 
 @when('{seconds:d} seconds have passed')
 def step_advance_time(context, seconds):
-    context.timer.advance_time(seconds)
+    context._fake_time += seconds
+    context.timer.update()
 
 @then('the output should be OPEN for {seconds:d} seconds')
 def step_check_output_open_duration(context, seconds):
@@ -39,9 +39,15 @@ def step_check_close_time(context, seconds):
 
 @then('OPEN again after {seconds:d} seconds')
 def step_check_open_again_after(context, seconds):
-    # Simulate time passing
-    context.timer.advance_time(seconds)
+    context._fake_time += seconds
+    context.timer.update()
+    # At this point, timer will still be CLOSE and show_zero=True
+    assert context.timer.status == "CLOSE"
+    assert context.timer.show_zero is True
 
+    # Advance a little more to trigger the state switch
+    context._fake_time += 0.1
+    context.timer.update()
     # Check the mode is OPEN
     assert context.timer.status == "OPEN", f"Expected mode OPEN after {seconds} seconds, but got {context.timer.status}"
 

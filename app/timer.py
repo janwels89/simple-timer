@@ -2,7 +2,7 @@ import time
 import os
 import json
 
-SETTINGS_FILE = "timer_settings.json"
+SETTINGS_FILE = "settings.json"
 
 class TimerController:
     DEFAULT_OPEN_TIME = 5
@@ -19,29 +19,18 @@ class TimerController:
         self.show_zero = False
         self.load_settings()
 
-    def adjust_time(self, delta):
-        if self.status == "OPEN":
-            self.open_time = max(0, self.open_time + delta)
-        elif self.status == "CLOSE":
-            self.close_time = max(0, self.close_time + delta)
-        else:
-            raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
-        self.save_settings()
-
-    def increase_time(self):
-        self.adjust_time(+1)
-
-    def decrease_time(self):
-        self.adjust_time(-1)
-
-    def advance_time(self, seconds):
+    def update(self):
         if not self.enabled:
             return
 
-        time_left = seconds
+        now = time.monotonic()
+        delta = now - self.last_update_time
+        self.last_update_time = now
+
+        time_left = delta
         while time_left > 0:
             if self.show_zero:
-                # We just showed 0, now switch state and reset timer
+                # Just showed 0, now switch state and reset timer
                 self.show_zero = False
                 self.elapsed = 0
                 self.status = "CLOSE" if self.status == "OPEN" else "OPEN"
@@ -66,15 +55,21 @@ class TimerController:
             else:
                 # If remaining already 0, immediately show zero for next tick
                 self.show_zero = True
-                break
 
-    def update(self):
-        if not self.enabled:
-            return
-        now = time.monotonic()
-        delta = now - self.last_update_time
-        self.last_update_time = now
-        self.advance_time(delta)
+    def adjust_time(self, delta):
+        if self.status == "OPEN":
+            self.open_time = max(0, self.open_time + delta)
+        elif self.status == "CLOSE":
+            self.close_time = max(0, self.close_time + delta)
+        else:
+            raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
+        self.save_settings()
+
+    def increase_time(self):
+        self.adjust_time(+1)
+
+    def decrease_time(self):
+        self.adjust_time(-1)
 
     def save_settings(self):
         data = {"open_time": self.open_time, "close_time": self.close_time}
