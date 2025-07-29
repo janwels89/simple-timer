@@ -12,6 +12,7 @@ class TimerController:
         self.open_time = self.DEFAULT_OPEN_TIME
         self.close_time = self.DEFAULT_CLOSE_TIME
         self.status = "OPEN"  # default OPEN
+        self.mode = "loop"
         self.enabled = True
         self.elapsed = 0
         self.last_update_time = time.monotonic()  # for real-time ticking
