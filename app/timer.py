@@ -34,8 +34,8 @@ class TimerController:
                 self.show_zero = False
                 self.elapsed = 0
                 self.status = "CLOSE" if self.status == "OPEN" else "OPEN"
-                # continue to handle time_left for the new state
-                continue
+                # break so UI can show full value before decrementing
+                break
 
             if self.status == "OPEN":
                 remaining = self.open_time - self.elapsed
@@ -47,14 +47,13 @@ class TimerController:
                     self.elapsed += remaining
                     time_left -= remaining
                     self.show_zero = True  # will display 0 next
-                    # break so UI can show 0 before switching state
                     break
                 else:
                     self.elapsed += time_left
                     time_left = 0
             else:
-                # If remaining already 0, immediately show zero for next tick
                 self.show_zero = True
+                break
 
     def adjust_time(self, delta):
         if self.status == "OPEN":
