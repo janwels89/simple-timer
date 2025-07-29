@@ -16,7 +16,7 @@ class TimerController:
         self.enabled = True
         self.elapsed = 0
         self.last_update_time = time.monotonic()  # for real-time ticking
-        self.show_zero = False  # New: indicates we should show 0 for one extra cycle
+        self.show_zero = False  # Show zero for current phase
         self.load_settings()
 
     def adjust_time(self, delta):
@@ -43,47 +43,41 @@ class TimerController:
 
         while time_left > 0:
             if self.status == "OPEN":
-                # If we are meant to show zero, do it for one more cycle before switching
                 remaining = self.open_time - self.elapsed
-                if remaining > 0:
+                if self.show_zero:
+                    # Just finished showing 0, now switch phase
+                    self.show_zero = False
+                    self.status = "CLOSE"
+                    self.elapsed = 0
+                elif remaining > 0:
                     if time_left >= remaining:
                         self.elapsed += remaining
                         time_left -= remaining
-                        self.show_zero = True
-                        # Stay in OPEN, show 0 for next cycle
-                        break
+                        self.show_zero = True  # Show 0 for one tick
                     else:
                         self.elapsed += time_left
                         time_left = 0
                 else:
-                    if self.show_zero:
-                        # spent one cycle showing 0, now switch
-                        self.show_zero = False
-                        self.status = "CLOSE"
-                        self.elapsed = 0
-                    else:
-                        # If we skipped, just in case, set to show zero for one cycle
-                        self.show_zero = True
-                        break
+                    # If here, remaining == 0, but show_zero is not set
+                    self.show_zero = True
+                    break
             else:  # CLOSE
                 remaining = self.close_time - self.elapsed
-                if remaining > 0:
+                if self.show_zero:
+                    self.show_zero = False
+                    self.status = "OPEN"
+                    self.elapsed = 0
+                elif remaining > 0:
                     if time_left >= remaining:
                         self.elapsed += remaining
                         time_left -= remaining
                         self.show_zero = True
-                        break
                     else:
                         self.elapsed += time_left
                         time_left = 0
                 else:
-                    if self.show_zero:
-                        self.show_zero = False
-                        self.status = "OPEN"
-                        self.elapsed = 0
-                    else:
-                        self.show_zero = True
-                        break
+                    self.show_zero = True
+                    break
 
     def update(self):
         """Call regularly in a loop — updates based on real time"""
