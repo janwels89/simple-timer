@@ -44,7 +44,10 @@ class Display:
         self.status_c = None
         self.width = self.hw.width
         self.height = self.hw.height
-        self.font_main = self._get_font(14)
+
+        # Bigger font for numbers, medium for label, small for status
+        self.font_number = self._get_font(24)  # Large for numbers
+        self.font_label = self._get_font(16)  # Larger for "OPEN", "CLOSE"
         self.font_status = self._get_font(10)
         self._create_background()
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
@@ -85,19 +88,37 @@ class Display:
         self.image.save(path)
 
     def _get_font(self, size):
+        # Try common fonts for large displays
         try:
-            return ImageFont.truetype("arial.ttf", size)
+            return ImageFont.truetype("DejaVuSans-Bold.ttf", size)
         except Exception:
-            return ImageFont.load_default()
+            try:
+                return ImageFont.truetype("arial.ttf", size)
+            except Exception:
+                return ImageFont.load_default()
 
     def _draw_label_number(self, y, label, number, fill=0):
+        # Draw label with larger font, number with largest font, both vertically centered in their own row
+        # Calculate positions for label and number
+        label_font = self.font_label
+        number_font = self.font_number
+
         label_x = 5
-        number = str(number)
-        bbox = self.font_main.getbbox(number)
-        num_w = bbox[2] - bbox[0]
-        num_x = self.width - num_w - 5
-        self.draw.text((label_x, y), label, font=self.font_main, fill=fill)
-        self.draw.text((num_x, y), number, font=self.font_main, fill=fill)
+        label_y = y
+        number_str = str(number)
+        # Center number vertically in row
+        label_bbox = label_font.getbbox(label)
+        label_h = label_bbox[3] - label_bbox[1]
+        number_bbox = number_font.getbbox(number_str)
+        number_w = number_bbox[2] - number_bbox[0]
+        number_h = number_bbox[3] - number_bbox[1]
+        # Place label left, number right aligned, both baseline at y
+        num_x = self.width - number_w - 5
+        # Place number vertically aligned with label, or a little lower for emphasis
+        num_y = y + max(0, (label_h - number_h) // 2) + 2
+
+        self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
+        self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
         logger.debug("Display.draw_layout called: open=%s, close=%s, a=%s, b=%s, c=%s", open_num, close_num, status_a,
@@ -108,8 +129,9 @@ class Display:
         self._create_background()
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        self._draw_label_number(20, "OPEN", open_num)
-        self._draw_label_number(40, "CLOSE", close_num)
+        # Leave more vertical space for big numbers
+        self._draw_label_number(18, "OPEN", open_num)
+        self._draw_label_number(42, "CLOSE", close_num)
 
     def update_numbers(self, timer):
         logger.debug("Display.update_numbers called: %s", timer)
@@ -128,8 +150,8 @@ class Display:
                 close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        self._draw_label_number(20, "OPEN", open_remaining)
-        self._draw_label_number(40, "CLOSE", close_remaining)
+        self._draw_label_number(18, "OPEN", open_remaining)
+        self._draw_label_number(42, "CLOSE", close_remaining)
 
 
 if __name__ == "__main__":
