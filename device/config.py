@@ -131,5 +131,3 @@ class RaspberryPi:
 ### END OF FILE ###
 
 RPI = RaspberryPi()
-
-RPI = RaspberryPi()
