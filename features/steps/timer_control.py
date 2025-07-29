@@ -1,12 +1,11 @@
 from behave import given, when, then
 from app.timer import TimerController
-from app.mock_hardware import WaveI2COLED
-
+from features.steps.mocks.mock_sh1106 import SH1106
 
 @given("the device is powered on")
 def step_powered_on(context):
     context.timer = TimerController()
-    context.display = WaveI2COLED()
+    context.display = SH1106()
     context.timer.mode = "OPEN"
 
 
