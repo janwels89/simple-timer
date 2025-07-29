@@ -1,30 +1,33 @@
 import os
 import platform
+import logging
 from PIL import Image, ImageDraw, ImageFont
+
+logger = logging.getLogger(__name__)
 
 def _get_display_driver(debug=False):
     driver_type = os.getenv("DISPLAY_DRIVER")
     if driver_type == "mock":
         from features.steps.mocks.mock_sh1106 import SH1106
         if debug:
-            print("[DEBUG] Using MOCK display driver (forced by DISPLAY_DRIVER=mock)")
+            logger.debug("Using MOCK display driver (forced by DISPLAY_DRIVER=mock)")
         return SH1106
     elif driver_type == "real":
         from device.SH1106 import SH1106
         if debug:
-            print("[DEBUG] Using REAL display driver (forced by DISPLAY_DRIVER=real)")
+            logger.debug("Using REAL display driver (forced by DISPLAY_DRIVER=real)")
         return SH1106
     else:
         arch = platform.machine().lower()
         if any(arm in arch for arm in ("arm", "aarch64")):
             from device.SH1106 import SH1106
             if debug:
-                print("[DEBUG] Using REAL display driver (platform is ARM)")
+                logger.debug("Using REAL display driver (platform is ARM)")
             return SH1106
         else:
             from features.steps.mocks.mock_sh1106 import SH1106
             if debug:
-                print("[DEBUG] Using MOCK display driver (platform is NOT ARM)")
+                logger.debug("Using MOCK display driver (platform is NOT ARM)")
             return SH1106
 
 
@@ -33,17 +36,17 @@ class Display:
         self._debug = debug
 
         if self._debug:
-            print("[DEBUG] Display.__init__ starting")
+            logger.debug("Display.__init__ starting")
         # If hardware is provided, use it. Otherwise, instantiate selected driver with no args.
         if hardware is None:
             driver = _get_display_driver(debug=self._debug)
             self.hw = driver()
             if self._debug:
-                print(f"[DEBUG] Loaded display driver: {self.hw.__class__.__module__}.{self.hw.__class__.__name__}")
+                logger.debug(f"Loaded display driver: {self.hw.__class__.__module__}.{self.hw.__class__.__name__}")
         else:
             self.hw = hardware
             if self._debug:
-                print(f"[DEBUG] Using provided hardware: {self.hw.__class__.__module__}.{self.hw.__class__.__name__}")
+                logger.debug(f"Using provided hardware: {self.hw.__class__.__module__}.{self.hw.__class__.__name__}")
 
         self.status_a = None
         self.status_b = None
@@ -56,7 +59,7 @@ class Display:
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
         self.draw = ImageDraw.Draw(self.image)
         if self._debug:
-            print("[DEBUG] Display.__init__ complete")
+            logger.debug("Display.__init__ complete")
 
     def _create_background(self):
         """Draw static layout and store as background image."""
@@ -93,12 +96,12 @@ class Display:
 
     def getbuffer(self, image):
         if self._debug:
-            print("[DEBUG] Display.getbuffer called")
+            logger.debug("Display.getbuffer called")
         return self.hw.getbuffer(image)
 
     def ShowImage(self, image):
         if self._debug:
-            print("[DEBUG] Display.ShowImage called")
+            logger.debug("Display.ShowImage called")
         result = self.hw.ShowImage(image)
         if self._is_mock():
             # Save the PIL image (not the buffer) for inspection
@@ -127,7 +130,7 @@ class Display:
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
         if self._debug:
-            print(f"[DEBUG] Display.draw_layout called: open={open_num}, close={close_num}, a={status_a}, b={status_b}, c={status_c}")
+            logger.debug(f"Display.draw_layout called: open={open_num}, close={close_num}, a={status_a}, b={status_b}, c={status_c}")
 
         # Update status labels for background
         self.status_a = status_a
@@ -146,7 +149,7 @@ class Display:
 
     def update_numbers(self, timer):
         if self._debug:
-            print(f"[DEBUG] Display.update_numbers called: {timer}")
+            logger.debug(f"Display.update_numbers called: {timer}")
 
         if timer.status == "OPEN":
             open_remaining = max(0, int(round(timer.open_time - timer.elapsed)))

@@ -1,3 +1,8 @@
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+
 LCD_WIDTH   = 128
 LCD_HEIGHT  = 64
 
@@ -51,11 +56,11 @@ class SH1106(object):
 
     # Utility for tests: print buffer actions
     def show_log(self):
-        print("[MOCK] SH1106 Display Log:")
+        logger.info("SH1106 Display Log:")
         for entry in self.buffer:
-            print(entry)
+            logger.info(entry)
         if self.is_cleared:
-            print("[MOCK] Display is currently cleared.")
+            logger.info("Display is currently cleared.")
 
     # Utility for tests: get the last buffer operation
     @property
