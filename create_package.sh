@@ -2,7 +2,7 @@
 set -e
 
 # Detect version from latest git tag
-VERSION=$(git describe --tags --abbrev=0)
+VERSION=$(git tag --sort=-creatordate | head -n1)
 GIT_DESCRIBE=$(git describe --tags --always)
 
 # If HEAD is not at the tag, append short hash
