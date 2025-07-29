@@ -1,9 +1,9 @@
-from device import config
+from device.config import RPI
 import time
 import numpy as np
 
-Device_SPI = config.Device_SPI
-Device_I2C = config.Device_I2C
+Device_SPI = 1
+Device_I2C = 0
 
 LCD_WIDTH   = 128 #LCD width
 LCD_HEIGHT  = 64  #LCD height
@@ -13,7 +13,7 @@ class SH1106(object):
         self.width = LCD_WIDTH
         self.height = LCD_HEIGHT
         #Initialize DC RST pin
-        self.RPI = config.RaspberryPi()
+        self.RPI = RPI
         self._dc = self.RPI.GPIO_DC_PIN
         self._rst = self.RPI.GPIO_RST_PIN
         self.Device = self.RPI.Device

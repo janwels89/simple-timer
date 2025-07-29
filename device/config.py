@@ -129,3 +129,7 @@ class RaspberryPi:
         self.digital_write(self.GPIO_DC_PIN,False)
 
 ### END OF FILE ###
+
+RPI = RaspberryPi()
+
+RPI = RaspberryPi()
