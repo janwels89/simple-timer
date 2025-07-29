@@ -1,9 +1,6 @@
-from PIL import Image, ImageDraw, ImageFont
 import os
 import platform
-
-OPEN_TEXT = "OPEN:"
-CLOSE_TEXT = "CLOSE:"
+from PIL import ImageFont, Image, ImageDraw
 
 def _get_display_driver():
     driver_type = os.getenv("DISPLAY_DRIVER")
@@ -36,18 +33,22 @@ class Display:
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
         self.draw = ImageDraw.Draw(self.image)
 
+    def _is_mock(self):
+        # Detect if hardware is mock by module path
+        return "features.steps.mocks" in self.hw.__class__.__module__
+
     def getbuffer(self, image):
         return self.hw.getbuffer(image)
 
     def ShowImage(self, image):
-        """Show image and if using mock, save PNG automatically."""
         result = self.hw.ShowImage(image)
-        self._save_if_mock()
+        if self._is_mock():
+            # Save the PIL image (not the buffer) for inspection
+            self.image.save("mock_output.png")
         return result
 
-    def show(self):
-        """Convenience for showing the current image buffer."""
-        self.ShowImage(self.getbuffer(self.image))
+    def save(self, path):
+        self.image.save(path)
 
     def _get_font(self, size):
         try:
@@ -85,27 +86,15 @@ class Display:
         status_c_x = self.width - status_c_w - 2
         self.draw.text((status_c_x, 2), status_c_text, font=self.font_status, fill=0)
 
-        # Main numbers
-        self._draw_label_number(28, OPEN_TEXT, open_num)
-        self._draw_label_number(48, CLOSE_TEXT, close_num)
+        # Main field area (below status bar)
+        gap = 2
+        main1_y = status_h + gap
 
     def update_numbers(self, open_num, close_num):
         # Only update the main numbers, keep status bar as is
         self.draw.rectangle((0, 20, self.width, self.height), fill=255)
-        self._draw_label_number(28, OPEN_TEXT, open_num)
-        self._draw_label_number(48, CLOSE_TEXT, close_num)
-
-    def save(self, path):
-        """Save the current PIL image buffer to disk as PNG."""
-        self.image.save(path)
-
-    def _is_mock(self):
-        # Detect if hardware is mock by module path or by class name
-        return "features.steps.mocks" in self.hw.__class__.__module__
-
-    def _save_if_mock(self, path="mock_output.png"):
-        if self._is_mock():
-            self.image.save(path)
+        self._draw_label_number(28, "OPEN:", open_num)
+        self._draw_label_number(48, "CLOSE:", close_num)
 
 if __name__ == "__main__":
     display = Display()
@@ -114,4 +103,4 @@ if __name__ == "__main__":
         close_num=7,
         status_a="A", status_b="B", status_c="C"
     )
-    display.show()
+    display.ShowImage(display.getbuffer(display.image))
