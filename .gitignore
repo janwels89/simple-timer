@@ -1,3 +1,7 @@
-/.idea
+/.idea/
+/dist/
+/build*/
+# Mock PNGS
 /mock_output.png
 /test_output.png
+*.tar.gz
