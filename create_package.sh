@@ -11,6 +11,11 @@ if [[ "$GIT_DESCRIBE" != "$VERSION" ]]; then
     VERSION="${VERSION}-${SHORT_HASH}"
 fi
 
+# Check for uncommitted changes
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    VERSION="${VERSION}-dirty"
+fi
+
 echo "Detected version: $VERSION"
 
 # Inject version into app/version.py
