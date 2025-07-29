@@ -31,6 +31,7 @@ def _get_display_driver(debug=False):
 class Display:
     def __init__(self, hardware=None, debug=False):
         self._debug = debug
+
         if self._debug:
             print("[DEBUG] Display.__init__ starting")
         # If hardware is provided, use it. Otherwise, instantiate selected driver with no args.
@@ -43,14 +44,48 @@ class Display:
             self.hw = hardware
             if self._debug:
                 print(f"[DEBUG] Using provided hardware: {self.hw.__class__.__module__}.{self.hw.__class__.__name__}")
+
+        self.status_a = None
+        self.status_b = None
+        self.status_c = None
         self.width = self.hw.width
         self.height = self.hw.height
         self.font_main = self._get_font(14)
         self.font_status = self._get_font(10)
+        self._create_background()
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
         self.draw = ImageDraw.Draw(self.image)
         if self._debug:
             print("[DEBUG] Display.__init__ complete")
+
+    def _create_background(self):
+        """Draw static layout and store as background image."""
+        self.background = Image.new('1', (self.width, self.height), "WHITE")
+        bg_draw = ImageDraw.Draw(self.background)
+
+        # --- Static layout drawing from draw_layout ---
+        # Status bar at top (height 16px)
+        status_h = 16
+        bg_draw.rectangle((0, 0, self.width - 1, status_h - 1), outline=0, fill=100)
+
+        # Divide status bar into three equal sections for A, B, C
+        section_w = self.width // 3
+
+        # Status A (left)
+        bg_draw.text((2, 2), "", font=self.font_status, fill=0)  # Placeholder
+
+        # Status B (center)
+        status_b_text = ""
+        bbox_b = self.font_status.getbbox(status_b_text)
+        status_b_w = bbox_b[2] - bbox_b[0]
+        status_b_x = section_w + (section_w - status_b_w) // 2
+        bg_draw.text((status_b_x, 2), status_b_text, font=self.font_status, fill=0)
+
+        # Status C (right)
+        status_c_text = ""
+        section_c_x = 2 * section_w + 2
+        bg_draw.text((section_c_x, 2), status_c_text, font=self.font_status, fill=0)
+        # Any other static graphics can go here!
 
     def _is_mock(self):
         # Detect if hardware is mock by module path
@@ -93,50 +128,40 @@ class Display:
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
         if self._debug:
             print(f"[DEBUG] Display.draw_layout called: open={open_num}, close={close_num}, a={status_a}, b={status_b}, c={status_c}")
-        # Clear display
-        self.draw.rectangle((0, 0, self.width, self.height), fill=255)
 
-        # Status bar at top (height 16px)
-        status_h = 16
-        self.draw.rectangle((0, 0, self.width - 1, status_h - 1), outline=0, fill=100)
+        # Update status labels for background
+        self.status_a = status_a
+        self.status_b = status_b
+        self.status_c = status_c
+        self._create_background()  # Redraw background with new labels
 
-        # Divide status bar into three equal sections for A, B, C
-        section_w = self.width // 3
+        # Start from background image
+        self.image = self.background.copy()
+        self.draw = ImageDraw.Draw(self.image)
 
-        # Status A (left)
-        self.draw.text((2, 2), str(status_a), font=self.font_status, fill=0)
-
-        # Status B (center)
-        status_b_text = str(status_b)
-        bbox_b = self.font_status.getbbox(status_b_text)
-        status_b_w = bbox_b[2] - bbox_b[0]
-        status_b_x = section_w + (section_w - status_b_w) // 2
-        self.draw.text((status_b_x, 2), status_b_text, font=self.font_status, fill=0)
-
-        # Status C (right, left-aligned in its box)
-        status_c_text = str(status_c)
-        section_c_x = 2 * section_w + 2  # 2 pixels margin inside the rightmost third
-        self.draw.text((section_c_x, 2), status_c_text, font=self.font_status, fill=0)
-
-        # Main field area (below status bar)
-        gap = 2
-        main1_y = status_h + gap
+        # Draw dynamic numbers
+        self._draw_label_number(20, "OPEN", open_num)
+        self._draw_label_number(40, "CLOSE", close_num)
 
 
-      def update_numbers(self, timer):
+    def update_numbers(self, timer):
         if self._debug:
             print(f"[DEBUG] Display.update_numbers called: {timer}")
+
         if timer.status == "OPEN":
             open_remaining = max(0, int(round(timer.open_time - timer.elapsed)))
             close_remaining = timer.close_time
-        else:  # status == "CLOSE"
+        else:
             open_remaining = timer.open_time
             close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
 
-        self.image = Image.new('1', (self.width, self.height), "WHITE")
+        # Start from the background each time
+        self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        self.draw.text((10, 28), f"OPEN: {open_remaining:02}", font=self.font_main, fill=0)
-        self.draw.text((10, 48), f"CLOSE: {close_remaining:02}", font=self.font_main, fill=0)
+
+        # Draw only the changing numbers (adjust y positions as needed)
+        self._draw_label_number(20, "OPEN", open_remaining)
+        self._draw_label_number(40, "CLOSE", close_remaining)
 
 if __name__ == "__main__":
      display = Display()
