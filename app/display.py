@@ -79,14 +79,14 @@ class Display:
             return ImageFont.load_default()
 
 
-    def _draw_label_number(self, y, label, number):
+    def _draw_label_number(self, y, label, number, fill=0):
         label_x = 5
         number = str(number)
         bbox = self.font_main.getbbox(number)
         num_w = bbox[2] - bbox[0]
         num_x = self.width - num_w - 5
-        self.draw.text((label_x, y), label, font=self.font_main, fill=0)
-        self.draw.text((num_x, y), number, font=self.font_main, fill=0)
+        self.draw.text((label_x, y), label, font=self.font_main, fill=fill)
+        self.draw.text((num_x, y), number, font=self.font_main, fill=fill)
 
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
@@ -124,10 +124,11 @@ class Display:
     def update_numbers(self, open_num, close_num):
         if self._debug:
             print(f"[DEBUG] Display.update_numbers called: open={open_num}, close={close_num}")
-        # Only update the main numbers, keep status bar as is
+        # Clear the number area (white)
         self.draw.rectangle((0, 20, self.width, self.height), fill=255)
-        self._draw_label_number(28, "OPEN:", open_num)
-        self._draw_label_number(48, "CLOSE:", close_num)
+        # Draw new numbers in black
+        self._draw_label_number(28, "OPEN:", open_num, fill=0)
+        self._draw_label_number(48, "CLOSE:", close_num, fill=0)
 
 
 if __name__ == "__main__":
