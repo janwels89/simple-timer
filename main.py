@@ -33,7 +33,10 @@ def main(debug=False):
 
         while True:
             timer.update()
-            display.update_numbers(timer.open_time, timer.close_time)
+            print(f"[DEBUG] Timer status={timer.status} elapsed={timer.elapsed} open={timer.open_time} close={timer.close_time}")
+
+            display.update_numbers(timer)
+
             display.ShowImage(display.getbuffer(display.image))  # <-- FIXED
             if debug:
                 print(f"[Timer] Status: {timer.status}, Elapsed: {timer.elapsed:.2f}s, Open: {timer.open_time}, Close: {timer.close_time}")

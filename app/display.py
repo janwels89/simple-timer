@@ -27,6 +27,7 @@ def _get_display_driver(debug=False):
                 print("[DEBUG] Using MOCK display driver (platform is NOT ARM)")
             return SH1106
 
+
 class Display:
     def __init__(self, hardware=None, debug=False):
         self._debug = debug
@@ -121,15 +122,21 @@ class Display:
         gap = 2
         main1_y = status_h + gap
 
-    def update_numbers(self, open_num, close_num):
-        if self._debug:
-            print(f"[DEBUG] Display.update_numbers called: open={open_num}, close={close_num}")
-        # Clear the number area (white)
-        self.draw.rectangle((0, 20, self.width, self.height), fill=255)
-        # Draw new numbers in black
-        self._draw_label_number(28, "OPEN:", open_num, fill=0)
-        self._draw_label_number(48, "CLOSE:", close_num, fill=0)
 
+      def update_numbers(self, timer):
+        if self._debug:
+            print(f"[DEBUG] Display.update_numbers called: {timer}")
+        if timer.status == "OPEN":
+            open_remaining = max(0, int(round(timer.open_time - timer.elapsed)))
+            close_remaining = timer.close_time
+        else:  # status == "CLOSE"
+            open_remaining = timer.open_time
+            close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
+
+        self.image = Image.new('1', (self.width, self.height), "WHITE")
+        self.draw = ImageDraw.Draw(self.image)
+        self.draw.text((10, 28), f"OPEN: {open_remaining:02}", font=self.font_main, fill=0)
+        self.draw.text((10, 48), f"CLOSE: {close_remaining:02}", font=self.font_main, fill=0)
 
 if __name__ == "__main__":
      display = Display()
