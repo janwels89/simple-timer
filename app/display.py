@@ -15,7 +15,8 @@ def _get_display_driver(debug=False):
             print("[DEBUG] Using REAL display driver (forced by DISPLAY_DRIVER=real)")
         return SH1106
     else:
-        if platform.machine().startswith('arm'):
+        arch = platform.machine().lower()
+        if any(arm in arch for arm in ("arm", "aarch64")):
             from device.SH1106 import SH1106
             if debug:
                 print("[DEBUG] Using REAL display driver (platform is ARM)")
