@@ -2,7 +2,7 @@ Feature: Timer control
 
   Scenario: Increase selected timer value
     Given the device is powered on
-    And a timer (ON or OFF) is selected
+    And a timer (OPEN or CLOSE) is selected
     And the selected timer is currently set to 5 seconds
     When the user moves the joystick up
     Then the selected timer value should increase by 1 second
@@ -10,7 +10,7 @@ Feature: Timer control
 
   Scenario: Decrease selected timer value
     Given the device is powered on
-    And a timer (ON or OFF) is selected
+    And a timer (OPEN or CLOSE) is selected
     And the selected timer is currently set to 12 seconds
     When the user moves the joystick down
     Then the selected timer value should decrease by 1 second
