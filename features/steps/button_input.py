@@ -1,7 +1,6 @@
 from behave import given, when, then
 from app.timer import TimerController
-from app.mock_hardware import WaveI2COLED
-
+from features.steps.mocks.mock_sh1106 import SH1106
 
 @when("the user presses KEY3")
 def step_press_key3(context):

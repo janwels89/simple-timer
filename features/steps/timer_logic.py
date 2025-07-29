@@ -1,8 +1,7 @@
 from behave import given, when, then
 from time import sleep
 from app.timer import TimerController
-from app.mock_hardware import WaveI2COLED
-
+from features.steps.mocks.mock_sh1106 import SH1106
 
 @given("the OPEN time is set to {seconds:d} seconds")
 def step_set_open_time(context, seconds):
