@@ -113,12 +113,19 @@ class Display:
 
     def update_numbers(self, timer):
         logger.debug("Display.update_numbers called: %s", timer)
+        # Show 0 if timer.show_zero is True
         if timer.status == "OPEN":
-            open_remaining = max(0, int(round(timer.open_time - timer.elapsed)))
+            if hasattr(timer, "show_zero") and timer.show_zero:
+                open_remaining = 0
+            else:
+                open_remaining = max(0, int(round(timer.open_time - timer.elapsed)))
             close_remaining = timer.close_time
         else:
             open_remaining = timer.open_time
-            close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
+            if hasattr(timer, "show_zero") and timer.show_zero:
+                close_remaining = 0
+            else:
+                close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(20, "OPEN", open_remaining)

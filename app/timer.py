@@ -1,6 +1,6 @@
 import time
-import json
 import os
+import json
 
 SETTINGS_FILE = "timer_settings.json"
 
@@ -16,6 +16,7 @@ class TimerController:
         self.enabled = True
         self.elapsed = 0
         self.last_update_time = time.monotonic()  # for real-time ticking
+        self.show_zero = False  # New: indicates we should show 0 for one extra cycle
         self.load_settings()
 
     def adjust_time(self, delta):
@@ -34,7 +35,7 @@ class TimerController:
         self.adjust_time(-1)
 
     def advance_time(self, seconds):
-        """Testable, manual time simulatiOPEN"""
+        """Testable, manual time simulation. Also used by update()."""
         if not self.enabled:
             return
 
@@ -42,26 +43,50 @@ class TimerController:
 
         while time_left > 0:
             if self.status == "OPEN":
+                # If we are meant to show zero, do it for one more cycle before switching
                 remaining = self.open_time - self.elapsed
-                if time_left >= remaining:
-                    time_left -= remaining
-                    self.status = "CLOSE"
-                    self.elapsed = 0
+                if remaining > 0:
+                    if time_left >= remaining:
+                        self.elapsed += remaining
+                        time_left -= remaining
+                        self.show_zero = True
+                        # Stay in OPEN, show 0 for next cycle
+                        break
+                    else:
+                        self.elapsed += time_left
+                        time_left = 0
                 else:
-                    self.elapsed += time_left
-                    time_left = 0
+                    if self.show_zero:
+                        # spent one cycle showing 0, now switch
+                        self.show_zero = False
+                        self.status = "CLOSE"
+                        self.elapsed = 0
+                    else:
+                        # If we skipped, just in case, set to show zero for one cycle
+                        self.show_zero = True
+                        break
             else:  # CLOSE
                 remaining = self.close_time - self.elapsed
-                if time_left >= remaining:
-                    time_left -= remaining
-                    self.status = "OPEN"
-                    self.elapsed = 0
+                if remaining > 0:
+                    if time_left >= remaining:
+                        self.elapsed += remaining
+                        time_left -= remaining
+                        self.show_zero = True
+                        break
+                    else:
+                        self.elapsed += time_left
+                        time_left = 0
                 else:
-                    self.elapsed += time_left
-                    time_left = 0
+                    if self.show_zero:
+                        self.show_zero = False
+                        self.status = "OPEN"
+                        self.elapsed = 0
+                    else:
+                        self.show_zero = True
+                        break
 
     def update(self):
-        """Call regularly in a loop — updates based OPEN real time"""
+        """Call regularly in a loop — updates based on real time"""
         if not self.enabled:
             return
 
@@ -86,12 +111,13 @@ class TimerController:
                     self.open_time = int(data.get("open_time", self.DEFAULT_OPEN_TIME))
                     self.close_time = int(data.get("close_time", self.DEFAULT_CLOSE_TIME))
             except (FileNotFoundError, json.JSONDecodeError, ValueError):
-                # If file is corrupted, use defaults
                 self.open_time = self.DEFAULT_OPEN_TIME
                 self.close_time = self.DEFAULT_CLOSE_TIME
-
 
     def reset_settings(self):
         """Delete the settings file and reset to defaults."""
         if os.path.exists(SETTINGS_FILE):
             os.remove(SETTINGS_FILE)
+        self.open_time = self.DEFAULT_OPEN_TIME
+        self.close_time = self.DEFAULT_CLOSE_TIME
+        self.save_settings()
