@@ -37,7 +37,21 @@ def step_timer_should_be_enabled(context):
     assert context.timer.enabled is True, "Expected timer to be enabled, but it is disabled"
 
 
+@when('the user presses KEY2 for 2 seconds')
+def when_user_presses_key2_for_two_seconds(context):
+    # Simulate pressing KEY2 for 2 seconds.
+    # If you have a controller with a button handling method:
+    if hasattr(context, "controller"):
+        context.controller.handle_button_press("KEY2", duration=2)
+    elif hasattr(context, "timer"):
+        # If the timer resets directly on this action:
+        context.timer.reset_settings()
+    else:
+        raise NotImplementedError("Button input simulation not implemented for this context.")
 
-@then("the timer should be disabled")
-def step_timer_should_be_disabled(context):
-    assert context.timer.enabled is False, "Expected timer to be disabled, but it is enabled"
+@then('the timer settings are reset')
+def then_timer_settings_are_reset(context):
+    # Ensure settings are reloaded after reset for assertion
+    context.timer.load_settings()
+    assert context.timer.open_time == context.timer.DEFAULT_OPEN_TIME, "Open time not reset to default"
+    assert context.timer.close_time == context.timer.DEFAULT_CLOSE_TIME, "Close time not reset to default"

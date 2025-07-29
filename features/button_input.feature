@@ -15,3 +15,9 @@ Feature: Button control
     And the timer is disabled
     When the user presses KEY2
     Then the timer should be enabled
+
+   Scenario: KEY2 toggles reset
+    Given the device is powered on
+    And the timer is disabled
+    When the user presses KEY2 for 2 seconds
+    Then the timer settings are reset
