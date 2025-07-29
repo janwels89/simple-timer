@@ -2,8 +2,8 @@ import time
 
 class TimerController:
     def __init__(self):
-        self.OPEN_time = 5
-        self.CLOSE_time = 5
+        self.open_time = 5
+        self.close_time = 5
         self.mode = "OPEN"  # default OPEN
         self.enabled = True
         self.elapsed = 0
@@ -11,9 +11,9 @@ class TimerController:
 
     def adjust_time(self, delta):
         if self.mode == "OPEN":
-            self.OPEN_time = max(1, self.OPEN_time + delta)
+            self.open_time = max(1, self.open_time + delta)
         elif self.mode == "CLOSE":
-            self.CLOSE_time = max(1, self.CLOSE_time + delta)
+            self.close_time = max(1, self.close_time + delta)
         else:
             raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
 
@@ -32,7 +32,7 @@ class TimerController:
 
         while time_left > 0:
             if self.mode == "OPEN":
-                remaining = self.OPEN_time - self.elapsed
+                remaining = self.open_time - self.elapsed
                 if time_left >= remaining:
                     time_left -= remaining
                     self.mode = "CLOSE"
@@ -41,7 +41,7 @@ class TimerController:
                     self.elapsed += time_left
                     time_left = 0
             else:  # CLOSE
-                remaining = self.CLOSE_time - self.elapsed
+                remaining = self.close_time - self.elapsed
                 if time_left >= remaining:
                     time_left -= remaining
                     self.mode = "OPEN"
