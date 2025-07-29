@@ -1,10 +1,14 @@
 import time
 import sys
+import logging
 from app.timer import TimerController
 from app.display import Display
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 def main(debug=False):
-    print(f"[DEBUG] main() starting, debug={debug}")
+    logger.debug(f"main() starting, debug={debug}")
     display = None
     try:
         display = Display(debug=debug)
@@ -18,7 +22,7 @@ def main(debug=False):
         display.ShowImage(display.getbuffer(display.image))
         time.sleep(2)
         display.hw.clear()
-        print("start timer")
+        logger.info("Timer starting")
 
         timer = TimerController()
         timer.status_a = ""
@@ -33,28 +37,37 @@ def main(debug=False):
 
         while True:
             timer.update()
-            print(f"[DEBUG] Timer status={timer.status} elapsed={timer.elapsed} open={timer.open_time} close={timer.close_time}")
+            logger.debug(f"Timer status={timer.status} elapsed={timer.elapsed} open={timer.open_time} close={timer.close_time}")
 
             display.update_numbers(timer)
 
             display.ShowImage(display.getbuffer(display.image))  # <-- FIXED
             if debug:
-                print(f"[Timer] Status: {timer.status}, Elapsed: {timer.elapsed:.2f}s, Open: {timer.open_time}, Close: {timer.close_time}")
+                logger.debug(f"Timer Status: {timer.status}, Elapsed: {timer.elapsed:.2f}s, Open: {timer.open_time}, Close: {timer.close_time}")
             time.sleep(0.9)
     finally:
         # Always clean up GPIOs if present
         if display is not None and hasattr(display, "hw") and hasattr(display.hw, "RPI"):
             try:
                 display.hw.RPI.module_exit()
-                print("GPIO cleanup done.")
+                logger.info("GPIO cleanup done.")
             except Exception as e:
-                print("GPIO cleanup failed:", e)
+                logger.error(f"GPIO cleanup failed: {e}")
 
 if __name__ == "__main__":
     debug = "--debug" in sys.argv
+    
+    # Configure logging
+    log_level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    
     try:
         main(debug=debug)
     except Exception as e:
-        print("Exception occurred:", e)
+        logger.error(f"Exception occurred: {e}")
         import traceback
         traceback.print_exc()
