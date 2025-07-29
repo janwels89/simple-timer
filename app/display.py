@@ -1,17 +1,42 @@
 from PIL import Image, ImageDraw, ImageFont
+import os
+import platform
 
 OPEN_TEXT = "OPEN:"
 CLOSE_TEXT = "CLOSE:"
 
+def _get_display_driver():
+    driver_type = os.getenv("DISPLAY_DRIVER")
+    if driver_type == "mock":
+        from features.steps.mocks.mock_sh1106 import SH1106
+        return SH1106
+    elif driver_type == "real":
+        from device.SH1106 import SH1106
+        return SH1106
+    else:
+        if platform.machine().startswith('arm'):
+            from device.SH1106 import SH1106
+            return SH1106
+        else:
+            from features.steps.mocks.mock_sh1106 import SH1106
+            return SH1106
+
 class Display:
-    def __init__(self, hardware):
-        self.hw = hardware
+    def __init__(self, hardware=None):
+        # If hardware is provided, use it. Otherwise, instantiate selected driver with no args.
+        if hardware is None:
+            driver = _get_display_driver()
+            self.hw = driver()
+        else:
+            self.hw = hardware
         self.width = self.hw.width
         self.height = self.hw.height
         self.font_main = self._get_font(14)
         self.font_status = self._get_font(10)
+        from PIL import Image, ImageDraw
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
         self.draw = ImageDraw.Draw(self.image)
+
 
     def getbuffer(self, image):
         return self.hw.getbuffer(image)

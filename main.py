@@ -2,8 +2,7 @@
 
 from app.timer import TimerController
 from app.display import Display
-import time
-from device.SH1106 import SH1106
+
 
 
 def main():

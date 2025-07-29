@@ -1,4 +1,4 @@
-import config
+from device import config
 import time
 import numpy as np
 
