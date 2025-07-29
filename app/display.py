@@ -78,8 +78,9 @@ class Display:
 
     def getbuffer(self, image):
         logger.debug("Display.getbuffer called")
-        return self.hw.getbuffer(image)
-
+        # Rotate image 180 degrees before sending to display hardware
+        rotated = image.transpose(Image.ROTATE_180)
+        return self.hw.getbuffer(rotated)
     def ShowImage(self, image):
         logger.debug("Display.ShowImage called")
         result = self.hw.ShowImage(image)
