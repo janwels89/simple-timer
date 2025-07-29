@@ -42,9 +42,9 @@ class Display:
             self.hw = hardware
             logger.debug("Using provided hardware: %s.%s", self.hw.__class__.__module__, self.hw.__class__.__name__)
 
-        self.status_a = None
-        self.status_b = None
-        self.status_c = None
+        self.status_a = ""
+        self.status_b = ""
+        self.status_c = ""
         self.width = self.hw.width
         self.height = self.hw.height
 
@@ -63,13 +63,13 @@ class Display:
         status_h = 16
         bg_draw.rectangle((0, 0, self.width - 1, status_h - 1), outline=0, fill=100)
         section_w = self.width // 3
-        bg_draw.text((2, 2), "", font=self.font_status, fill=0)
-        status_b_text = ""
+        bg_draw.text((2, 2), self.status_a, font=self.font_status, fill=0)
+        status_b_text = self.status_b
         bbox_b = self.font_status.getbbox(status_b_text)
         status_b_w = bbox_b[2] - bbox_b[0]
         status_b_x = section_w + (section_w - status_b_w) // 2
         bg_draw.text((status_b_x, 2), status_b_text, font=self.font_status, fill=0)
-        status_c_text = ""
+        status_c_text = self.status_c
         section_c_x = 2 * section_w + 2
         bg_draw.text((section_c_x, 2), status_c_text, font=self.font_status, fill=0)
 
