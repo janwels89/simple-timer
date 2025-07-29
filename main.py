@@ -17,7 +17,7 @@ def main():
         timer.update()
         display.update_numbers(timer.open_time, timer.close_time)
         display.hw.ShowImage(display.hw.getbuffer(display.image))
-        print(f"[Timer] Mode: {timer.mode}, Elapsed: {timer.elapsed:.2f}s")
+        print(f"[Timer] Status: {timer.status}, Elapsed: {timer.elapsed:.2f}s")
         time.sleep(0.1)
 
 if __name__ == "__main__":

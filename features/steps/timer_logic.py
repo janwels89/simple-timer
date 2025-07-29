@@ -64,6 +64,7 @@ def step_check_close_time(context, seconds):
     )
 
 @when("the timer settings are reset")
+@given("the timer settings are reset")
 def step_reset_timer_settings(context):
     # Use the controller's reset method for a clean abstraction
     context.timer.reset_settings()
