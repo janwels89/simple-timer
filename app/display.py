@@ -73,18 +73,23 @@ class Display:
         status_h = 16
         self.draw.rectangle((0, 0, self.width - 1, status_h - 1), outline=0, fill=100)
 
-        # Status A (left), Status B (center), Status C (right-aligned)
+        # Divide status bar into three equal sections for A, B, C
+        section_w = self.width // 3
+
+        # Status A (left)
         self.draw.text((2, 2), str(status_a), font=self.font_status, fill=0)
+
+        # Status B (center)
         status_b_text = str(status_b)
         bbox_b = self.font_status.getbbox(status_b_text)
         status_b_w = bbox_b[2] - bbox_b[0]
-        status_b_x = (self.width - status_b_w) // 2
+        status_b_x = section_w + (section_w - status_b_w) // 2
         self.draw.text((status_b_x, 2), status_b_text, font=self.font_status, fill=0)
+
+        # Status C (right, left-aligned in its box)
         status_c_text = str(status_c)
-        bbox_c = self.font_status.getbbox(status_c_text)
-        status_c_w = bbox_c[2] - bbox_c[0]
-        status_c_x = self.width - status_c_w - 2
-        self.draw.text((status_c_x, 2), status_c_text, font=self.font_status, fill=0)
+        section_c_x = 2 * section_w + 2  # 2 pixels margin inside the rightmost third
+        self.draw.text((section_c_x, 2), status_c_text, font=self.font_status, fill=0)
 
         # Main field area (below status bar)
         gap = 2
