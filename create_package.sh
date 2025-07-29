@@ -28,7 +28,7 @@ podman build --platform linux/arm64 -f "$DOCKERFILE" -t "$IMAGE_NAME" .
 rm -rf "$BUILD_DIR" "$DEPLOY_DIR" dist build __pycache__
 
 mkdir "$BUILD_DIR"
-cp -r app main.py requirements.txt "$BUILD_DIR"/
+cp -r app features main.py requirements.txt "$BUILD_DIR"/
 
 podman run --rm \
     -v "$PWD/build_arm64":/work:Z \
