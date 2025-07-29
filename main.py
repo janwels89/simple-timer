@@ -25,11 +25,6 @@ def main(debug=False):
         timer.status_b = ""
         timer.status_c = timer.mode
 
-    timer = TimerController()
-        timer.status_a = ""
-        timer.status_b = ""
-        timer.status_c = timer.mode
-
         if not debug and hasattr(display, "_is_mock") and display._is_mock():
             print("[INFO] Mock display driver is in use! Set DISPLAY_DRIVER=real or run on ARM hardware for hardware output.")
 
