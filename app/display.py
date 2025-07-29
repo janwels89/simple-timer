@@ -5,6 +5,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FONT_PATH = os.path.join(BASE_DIR, "fonts", "Font.ttf")
+
 
 def _get_display_driver():
     driver_type = os.getenv("DISPLAY_DRIVER")
@@ -45,10 +48,10 @@ class Display:
         self.width = self.hw.width
         self.height = self.hw.height
 
-        # Bigger font for numbers, medium for label, small for status
-        self.font_number = self._get_font(24)  # Large for numbers
-        self.font_label = self._get_font(16)  # Larger for "OPEN", "CLOSE"
-        self.font_status = self._get_font(10)
+        # Use your custom font for both numbers and labels
+        self.font_number = self._get_font(FONT_PATH, 28)  # Large for numbers
+        self.font_label = self._get_font(FONT_PATH, 16)  # For "OPEN", "CLOSE"
+        self.font_status = self._get_font(FONT_PATH, 10)  # Small for status
         self._create_background()
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
         self.draw = ImageDraw.Draw(self.image)
@@ -87,34 +90,29 @@ class Display:
     def save(self, path):
         self.image.save(path)
 
-    def _get_font(self, size):
-        # Try common fonts for large displays
+    def _get_font(self, font_path, size):
         try:
-            return ImageFont.truetype("DejaVuSans-Bold.ttf", size)
-        except Exception:
-            try:
-                return ImageFont.truetype("arial.ttf", size)
-            except Exception:
-                return ImageFont.load_default()
+            font = ImageFont.truetype(font_path, size)
+            logger.info(f"Loaded {font_path} at size {size}")
+            return font
+        except Exception as e:
+            logger.warning(f"Falling back to default font: {e}")
+            return ImageFont.load_default()
+
 
     def _draw_label_number(self, y, label, number, fill=0):
-        # Draw label with larger font, number with largest font, both vertically centered in their own row
-        # Calculate positions for label and number
         label_font = self.font_label
         number_font = self.font_number
 
         label_x = 5
         label_y = y
         number_str = str(number)
-        # Center number vertically in row
         label_bbox = label_font.getbbox(label)
         label_h = label_bbox[3] - label_bbox[1]
         number_bbox = number_font.getbbox(number_str)
         number_w = number_bbox[2] - number_bbox[0]
         number_h = number_bbox[3] - number_bbox[1]
-        # Place label left, number right aligned, both baseline at y
         num_x = self.width - number_w - 5
-        # Place number vertically aligned with label, or a little lower for emphasis
         num_y = y + max(0, (label_h - number_h) // 2) + 2
 
         self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
@@ -129,13 +127,11 @@ class Display:
         self._create_background()
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        # Leave more vertical space for big numbers
         self._draw_label_number(18, "OPEN", open_num)
         self._draw_label_number(42, "CLOSE", close_num)
 
     def update_numbers(self, timer):
         logger.debug("Display.update_numbers called: %s", timer)
-        # Show 0 if timer.show_zero is True
         if timer.status == "OPEN":
             if hasattr(timer, "show_zero") and timer.show_zero:
                 open_remaining = 0
