@@ -16,7 +16,7 @@ class AppController:
         self.display = Display()
         self.timer = TimerController()
         self.buttons = ButtonInput()
-        self.joystick = JoystickInput()   # <--- ADDED
+        self.joystick = JoystickInput()
         self.running = True
         self.selected_timer = None
         self.key2_was_pressed = False
@@ -95,31 +95,25 @@ class AppController:
             logging.info(f"Exited selection mode for {self.selected_timer}.")
             self.selected_timer = None
 
-        # Joystick up/down: adjust selected timer value
+        # Joystick up/down: adjust selected timer value (do NOT touch status/elapsed)
         if self.selected_timer:
             if self.joystick.is_active('up'):
                 if self.selected_timer == "OPEN":
-                    self.timer.status = "OPEN"
-                    self.timer.increase_time()
+                    self.timer.open_time += 1
                     logging.info("Increased OPEN time to %d", self.timer.open_time)
                 elif self.selected_timer == "CLOSE":
-                    self.timer.status = "CLOSE"
-                    self.timer.increase_time()
+                    self.timer.close_time += 1
                     logging.info("Increased CLOSE time to %d", self.timer.close_time)
                 time.sleep(0.2)  # Debounce
 
             if self.joystick.is_active('down'):
                 if self.selected_timer == "OPEN":
-                    self.timer.status = "OPEN"
-                    self.timer.decrease_time()
+                    self.timer.open_time = max(0, self.timer.open_time - 1)
                     logging.info("Decreased OPEN time to %d", self.timer.open_time)
                 elif self.selected_timer == "CLOSE":
-                    self.timer.status = "CLOSE"
-                    self.timer.decrease_time()
+                    self.timer.close_time = max(0, self.timer.close_time - 1)
                     logging.info("Decreased CLOSE time to %d", self.timer.close_time)
                 time.sleep(0.2)  # Debounce
-
-        # Remove timer.update() here to avoid double-call
 
     def log_timer_state_changes(self):
         # Only log when something actually changes
@@ -144,7 +138,7 @@ class AppController:
         try:
             while self.running:
                 self.handle_buttons()
-                if self.timer.enabled and not self.selected_timer:
+                if self.timer.enabled:
                     self.timer.update()
                 self.display.update_numbers(self.timer)
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
@@ -152,6 +146,7 @@ class AppController:
                 time.sleep(0.1)
         finally:
             self.buttons.cleanup()
+            self.joystick.cleanup()
             if hasattr(self.display, "hw") and hasattr(self.display.hw, "RPI"):
                 try:
                     self.display.hw.RPI.module_exit()
