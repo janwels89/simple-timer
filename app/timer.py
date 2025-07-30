@@ -13,7 +13,7 @@ class TimerController:
         self.close_time = self.DEFAULT_CLOSE_TIME
         self.status = "OPEN"
         self.mode = "loop"
-        self.enabled = True
+        self.enabled = False
         self.elapsed = 0
         self.last_update_time = time.monotonic()
         self.show_zero = False

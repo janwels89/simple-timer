@@ -3,7 +3,7 @@ import sys
 import logging
 from app.timer import TimerController
 from app.display import Display
-from app.input import ButtonInput  # Import ButtonInput
+from app.input import ButtonInput
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,10 +15,9 @@ def main(debug=False):
     if debug:
         logger.setLevel(logging.DEBUG)
     logger.debug("main() starting, debug=%s", debug)
+
     display = None
-    buttons = None  # ButtonInput instance
-    key2_hold_start = None
-    key2_was_pressed = False
+    buttons = None
 
     try:
         display = Display()
@@ -35,6 +34,8 @@ def main(debug=False):
         logger.info("start timer")
 
         timer = TimerController()
+        timer.enabled = False  # Ensure timer does not start automatically
+
         timer.status_a = ""
         timer.status_b = ""
         timer.status_c = timer.mode
@@ -45,47 +46,39 @@ def main(debug=False):
         display.draw_layout(timer.open_time, timer.close_time, timer.status_a, timer.status_b, timer.status_c)
         display.ShowImage(display.getbuffer(display.image))
 
-        buttons = ButtonInput()  # Initialize ButtonInput
+        buttons = ButtonInput()
+
+        key2_was_pressed = False
 
         while True:
-            # Button handling
-            # KEY3: select OPEN timer
+            # --- KEY2: Start/Stop timer toggle ---
+            if buttons.is_pressed('KEY2'):
+                if not key2_was_pressed:
+                    timer.enabled = not timer.enabled
+                    logger.info("Timer %s.", "started" if timer.enabled else "stopped")
+                    key2_was_pressed = True
+            else:
+                key2_was_pressed = False
+
+            # --- KEY3: select OPEN timer
             if buttons.is_pressed('KEY3'):
                 if timer.mode != "OPEN":
                     timer.mode = "OPEN"
                     logger.info("Timer module selected: OPEN")
 
-            # KEY1: select CLOSE timer
+            # --- KEY1: select CLOSE timer
             if buttons.is_pressed('KEY1'):
                 if timer.mode != "CLOSE":
                     timer.mode = "CLOSE"
                     logger.info("Timer module selected: CLOSE")
 
-            # KEY2: enable or reset
-            if buttons.is_pressed('KEY2'):
-                if not key2_was_pressed:
-                    key2_hold_start = time.time()
-                    key2_was_pressed = True
-                elif not timer.enabled and (time.time() - key2_hold_start) >= 2:
-                    timer.reset_settings()
-                    logger.info("Timer settings reset.")
-            else:
-                if key2_was_pressed:
-                    # Short press to enable
-                    if not timer.enabled and key2_hold_start and (time.time() - key2_hold_start) < 2:
-                        timer.enabled = True
-                        logger.info("Timer enabled.")
-                    key2_was_pressed = False
-                    key2_hold_start = None
+            # Only update timer if enabled
+            if timer.enabled:
+                timer.update()
 
-            timer.update()
-            logger.debug("Timer status=%s elapsed=%s open=%s close=%s", timer.status, timer.elapsed,
-                         timer.open_time, timer.close_time)
-
+            # Update display
             display.update_numbers(timer)
             display.ShowImage(display.getbuffer(display.image))
-            logger.debug("Status: %s, Elapsed: %.2fs, Open: %s, Close: %s", timer.status, timer.elapsed,
-                        timer.open_time, timer.close_time)
             time.sleep(0.1)
 
     finally:
