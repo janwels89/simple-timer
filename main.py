@@ -1,7 +1,9 @@
+import sys
 from app.controller import AppController
 
 def main():
-    app = AppController()
+    debug = '--debug' in sys.argv
+    app = AppController(debug=debug)
     app.run()
 
 if __name__ == '__main__':
