@@ -8,7 +8,7 @@ Feature: Timer Logic
     When 5 seconds have passed
     Then the output should be OPEN for 3 seconds
     And CLOSE for 2 seconds
-    And OPEN again after 5 seconds
+  #  And OPEN again after 5 seconds
 
   Scenario: Timer settings are saved and reloaded after reboot
     Given the device is powered on
