@@ -1,4 +1,7 @@
+import logging
 import RPi.GPIO as GPIO
+
+logger = logging.getLogger(__name__)
 
 class ButtonInput:
     """
@@ -16,6 +19,7 @@ class ButtonInput:
         GPIO.setmode(GPIO.BCM)
         for pin in self._pin_mapping.values():
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self._last_pressed = set()
 
     def is_pressed(self, key_name):
         pin = self._pin_mapping.get(key_name)
@@ -24,7 +28,11 @@ class ButtonInput:
         return GPIO.input(pin) == GPIO.LOW
 
     def pressed_buttons(self):
-        return [name for name, pin in self._pin_mapping.items() if GPIO.input(pin) == GPIO.LOW]
+        current_pressed = {name for name, pin in self._pin_mapping.items() if GPIO.input(pin) == GPIO.LOW}
+        if current_pressed != self._last_pressed:
+            logger.debug(f"Button state changed: pressed={sorted(current_pressed)}")
+            self._last_pressed = current_pressed.copy()
+        return list(current_pressed)
 
     def cleanup(self):
         GPIO.cleanup()
@@ -53,6 +61,7 @@ class JoystickInput:
         GPIO.setmode(GPIO.BCM)
         for pin in self._pin_mapping.values():
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self._last_active = set()
 
     def is_active(self, direction):
         """
@@ -68,7 +77,11 @@ class JoystickInput:
         """
         Returns a list of all currently pressed directions.
         """
-        return [name for name, pin in self._pin_mapping.items() if GPIO.input(pin) == GPIO.LOW]
+        current_active = {name for name, pin in self._pin_mapping.items() if GPIO.input(pin) == GPIO.LOW}
+        if current_active != self._last_active:
+            logger.debug(f"Joystick state changed: active={sorted(current_active)}")
+            self._last_active = current_active.copy()
+        return list(current_active)
 
     def cleanup(self):
         GPIO.cleanup()
