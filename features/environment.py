@@ -1,14 +1,14 @@
 import time
 
 def before_scenario(context, scenario):
-    # Only patch if not already patched
-    if not hasattr(context, "_real_monotonic"):
-        context._real_monotonic = time.monotonic
-    context._fake_time = 0
-    time.monotonic = lambda: context._fake_time
+    # Set up fake monotonic time and patch for all steps in the scenario
+    context._original_monotonic = time.monotonic
+    context._fake_time = context._original_monotonic()
+    def fake_monotonic():
+        return context._fake_time
+    time.monotonic = fake_monotonic
 
 def after_scenario(context, scenario):
-    # Only restore if it has been patched
-    if hasattr(context, "_real_monotonic"):
-        time.monotonic = context._real_monotonic
-        del context._real_monotonic
+    # Restore the original monotonic after scenario
+    if hasattr(context, "_original_monotonic"):
+        time.monotonic = context._original_monotonic
