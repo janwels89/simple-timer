@@ -2,13 +2,16 @@ from behave import given, when, then
 from app.timer import TimerController
 from app.display import Display
 from features.steps.mocks.mock_sh1106 import SH1106
+from features.steps.mocks.mock_input import ButtonInput
 from PIL import Image, ImageDraw, ImageFont
+
 
 
 @given("the device is powered on")
 def step_powered_on(context):
     context.timer = TimerController()
     context.display = Display(SH1106())
+    context.buttons = ButtonInput()
     context.timer.status = "OPEN"
 
 
