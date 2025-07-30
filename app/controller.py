@@ -120,6 +120,15 @@ class AppController:
                     logging.info("Decreased CLOSE time to %d", self.timer.close_time)
                 time.sleep(0.2)  # Debounce
 
+        if self.joystick.is_active('right'):
+            if self.selected_timer == "OPEN":
+                self.timer.open_time = max(0, self.timer.open_time - 1)
+                logging.info("Decreased OPEN time to %d", self.timer.open_time)
+            elif self.selected_timer == "CLOSE":
+                self.timer.close_time = max(0, self.timer.close_time - 1)
+                logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+            time.sleep(0.2)  # Debounce
+
     def log_timer_state_changes(self):
         # Only log when something actually changes
         if self.timer.enabled != self._last_timer_enabled:

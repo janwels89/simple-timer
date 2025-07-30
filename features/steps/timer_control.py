@@ -42,6 +42,9 @@ def step_move_joystick(context, direction):
         context.timer.increase_time()
     elif direction == "down":
         context.timer.decrease_time()
+    elif direction == "right":
+        context.timer.mode = "random"
+
     else:
         raise ValueError(f"Unknown joystick direction: {direction}")
 
