@@ -54,8 +54,13 @@ def main(debug=False):
             # --- KEY2: Start/Stop timer toggle ---
             if buttons.is_pressed('KEY2'):
                 if not key2_was_pressed:
-                    timer.enabled = not timer.enabled
-                    logger.info("Timer %s.", "started" if timer.enabled else "stopped")
+                    if not timer.enabled:
+                        timer.enabled = True
+                        timer.last_update_time = time.monotonic()  # Reset to prevent jump
+                        logger.info("Timer started.")
+                    else:
+                        timer.enabled = False
+                        logger.info("Timer stopped.")
                     key2_was_pressed = True
             else:
                 key2_was_pressed = False
