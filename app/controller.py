@@ -28,6 +28,11 @@ class AppController:
         self._last_timer_mode = self.timer.mode
         self._last_timer_elapsed = self.timer.elapsed
 
+        # Spinner for status_a
+        self._clock_symbols = ["|", "/", "-", "\\"]
+        self._clock_index = 0
+        self._last_anim_time = time.monotonic()
+
         # Display initialization
         self.display.hw.Init()
         self.display.hw.clear()
@@ -60,16 +65,14 @@ class AppController:
                 if self.key2_press_time is not None:
                     duration = time.monotonic() - self.key2_press_time
                     if duration >= 2.0:
-                        # Long press: full reset and remain stopped
+                        # Long press: reset
                         self.timer.enabled = False
                         self.timer.elapsed = 0
                         self.timer.show_zero = False
                         self.timer.status = "OPEN"
-                        # Optionally: reset open/close times to persisted values
-                        self.timer.load_settings()
-                        logging.info("Timer stopped and reset (long press).")
+                        logger.info("Timer stopped and reset (long press).")
                     else:
-                        # Short press: only pause/resume, DO NOT reset anything
+                        # Short press: pause/resume ONLY
                         if not self.timer.enabled:
                             self.timer.enabled = True
                             self.timer.last_update_time = time.monotonic()
@@ -97,7 +100,7 @@ class AppController:
             logging.info(f"Exited selection mode for {self.selected_timer}.")
             self.selected_timer = None
 
-        # Joystick up/down: adjust selected timer value (do NOT touch status/elapsed)
+        # Joystick up/down: adjust selected timer value
         if self.selected_timer:
             if self.joystick.is_active('up'):
                 if self.selected_timer == "OPEN":
@@ -142,6 +145,14 @@ class AppController:
                 self.handle_buttons()
                 if self.timer.enabled:
                     self.timer.update()
+                    # Animate classic spinner for status_a
+                    now = time.monotonic()
+                    if now - self._last_anim_time > 0.2:
+                        self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
+                        self._last_anim_time = now
+                    self.timer.status_a = self._clock_symbols[self._clock_index]
+                else:
+                    self.timer.status_a = ""
                 self.display.update_numbers(self.timer)
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
                 self.log_timer_state_changes()
