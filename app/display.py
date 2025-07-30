@@ -48,14 +48,16 @@ class Display:
         self.width = self.hw.width
         self.height = self.hw.height
 
-        # Use your custom font for both numbers and labels
-        self.font_number = self._get_font(FONT_PATH, 18)  # Large for numbers
-        self.font_label = self._get_font(FONT_PATH, 18)  # For "OPEN", "CLOSE"
-        self.font_status = self._get_font(FONT_PATH, 10)  # Small for status
+        self.font_number = self._get_font(FONT_PATH, 18)
+        self.font_label = self._get_font(FONT_PATH, 18)
+        self.font_status = self._get_font(FONT_PATH, 10)
         self._create_background()
         self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
         self.draw = ImageDraw.Draw(self.image)
         logger.debug("Display.__init__ complete")
+
+        # Track last state for state-change-only logging
+        self._last_state = {}
 
     def _create_background(self):
         self.background = Image.new('1', (self.width, self.height), "WHITE")
@@ -77,12 +79,12 @@ class Display:
         return "features.steps.mocks" in self.hw.__class__.__module__
 
     def getbuffer(self, image):
-        logger.debug("Display.getbuffer called")
-        # Rotate image 180 degrees before sending to display hardware
+        # No per-frame logging here to avoid console spam
         rotated = image.transpose(Image.ROTATE_180)
         return self.hw.getbuffer(rotated)
+
     def ShowImage(self, image):
-        logger.debug("Display.ShowImage called")
+        # No per-frame logging here to avoid console spam
         result = self.hw.ShowImage(image)
         if self._is_mock():
             self.image.save("mock_output.png")
@@ -99,7 +101,6 @@ class Display:
         except Exception as e:
             logger.warning(f"Falling back to default font: {e}")
             return ImageFont.load_default()
-
 
     def _draw_label_number(self, y, label, number, fill=0):
         label_font = self.font_label
@@ -120,8 +121,19 @@ class Display:
         self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
-        logger.debug("Display.draw_layout called: open=%s, close=%s, a=%s, b=%s, c=%s", open_num, close_num, status_a,
-                     status_b, status_c)
+        # Only log if state changes
+        current_state = {
+            'open_num': open_num,
+            'close_num': close_num,
+            'status_a': status_a,
+            'status_b': status_b,
+            'status_c': status_c
+        }
+        if current_state != self._last_state:
+            logger.debug("Display.draw_layout called: open=%s, close=%s, a=%s, b=%s, c=%s", open_num, close_num, status_a,
+                         status_b, status_c)
+            self._last_state = current_state.copy()
+
         self.status_a = status_a
         self.status_b = status_b
         self.status_c = status_c
@@ -132,7 +144,7 @@ class Display:
         self._draw_label_number(42, "CLOSE", close_num)
 
     def update_numbers(self, timer):
-        logger.debug("Display.update_numbers called: %s", timer)
+        # Only log if state changes
         if timer.status == "OPEN":
             if hasattr(timer, "show_zero") and timer.show_zero:
                 open_remaining = 0
@@ -145,6 +157,22 @@ class Display:
                 close_remaining = 0
             else:
                 close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
+
+        current_state = {
+            'open_remaining': open_remaining,
+            'close_remaining': close_remaining,
+            'status_a': getattr(timer, "status_a", ""),
+            'status_b': getattr(timer, "status_b", ""),
+            'status_c': getattr(timer, "status_c", "")
+        }
+        if current_state != self._last_state:
+            logger.debug(
+                "Display.update_numbers called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s",
+                open_remaining, close_remaining,
+                current_state['status_a'], current_state['status_b'], current_state['status_c']
+            )
+            self._last_state = current_state.copy()
+
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(18, "OPEN", open_remaining)
