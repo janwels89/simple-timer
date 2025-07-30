@@ -2,7 +2,7 @@ import time
 import logging
 from app.timer import TimerController
 from app.display import Display
-from app.input import ButtonInput
+from app.input import ButtonInput, JoystickInput
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,9 @@ class AppController:
         self.display = Display()
         self.timer = TimerController()
         self.buttons = ButtonInput()
+        self.joystick = JoystickInput()   # <--- ADDED
         self.running = True
+        self.selected_timer = None
         self.key2_was_pressed = False
         self.key2_press_time = None
 
@@ -58,37 +60,64 @@ class AppController:
                 if self.key2_press_time is not None:
                     duration = time.monotonic() - self.key2_press_time
                     if duration >= 2.0:
-                        # Long press: stop and reset timer
                         self.timer.enabled = False
                         self.timer.elapsed = 0
                         self.timer.show_zero = False
                         self.timer.status = "OPEN"
-                        logger.info("Timer stopped and reset (long press).")
+                        logging.info("Timer stopped and reset (long press).")
                     else:
-                        # Short press: toggle pause/resume
                         if not self.timer.enabled:
                             self.timer.enabled = True
                             self.timer.last_update_time = time.monotonic()
-                            logger.info("Timer started/resumed (short press).")
+                            logging.info("Timer started/resumed (short press).")
                         else:
                             self.timer.enabled = False
-                            logger.info("Timer paused (short press).")
+                            logging.info("Timer paused (short press).")
                 self.key2_press_time = None
                 self.key2_was_pressed = False
 
-        # KEY3: select OPEN timer
+        # KEY3: select OPEN timer for editing
         if self.buttons.is_pressed('KEY3'):
-            if self.timer.mode != "OPEN":
-                self.timer.mode = "OPEN"
-                logger.info("Timer module selected: OPEN")
+            if self.selected_timer != "OPEN":
+                self.selected_timer = "OPEN"
+                logging.info("Selected OPEN timer for editing.")
 
-        # KEY1: select CLOSE timer
+        # KEY1: select CLOSE timer for editing
         if self.buttons.is_pressed('KEY1'):
-            if self.timer.mode != "CLOSE":
-                self.timer.mode = "CLOSE"
-                logger.info("Timer module selected: CLOSE")
+            if self.selected_timer != "CLOSE":
+                self.selected_timer = "CLOSE"
+                logging.info("Selected CLOSE timer for editing.")
 
-        # You can add joystick/button handling for time adjustment here if needed
+        # KEY2: exit selection mode if in selection
+        if self.selected_timer and self.buttons.is_pressed('KEY2'):
+            logging.info(f"Exited selection mode for {self.selected_timer}.")
+            self.selected_timer = None
+
+        # Joystick up/down: adjust selected timer value
+        if self.selected_timer:
+            if self.joystick.is_active('up'):
+                if self.selected_timer == "OPEN":
+                    self.timer.status = "OPEN"
+                    self.timer.increase_time()
+                    logging.info("Increased OPEN time to %d", self.timer.open_time)
+                elif self.selected_timer == "CLOSE":
+                    self.timer.status = "CLOSE"
+                    self.timer.increase_time()
+                    logging.info("Increased CLOSE time to %d", self.timer.close_time)
+                time.sleep(0.2)  # Debounce
+
+            if self.joystick.is_active('down'):
+                if self.selected_timer == "OPEN":
+                    self.timer.status = "OPEN"
+                    self.timer.decrease_time()
+                    logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                elif self.selected_timer == "CLOSE":
+                    self.timer.status = "CLOSE"
+                    self.timer.decrease_time()
+                    logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                time.sleep(0.2)  # Debounce
+
+        # Remove timer.update() here to avoid double-call
 
     def log_timer_state_changes(self):
         # Only log when something actually changes
@@ -105,7 +134,6 @@ class AppController:
             self._last_timer_mode = self.timer.mode
 
         if self.timer.elapsed != self._last_timer_elapsed:
-            # Only log every full second change for less spam
             if int(self.timer.elapsed) != int(self._last_timer_elapsed):
                 logger.debug(f"Timer elapsed changed: {int(self._last_timer_elapsed)} -> {int(self.timer.elapsed)}")
             self._last_timer_elapsed = self.timer.elapsed
@@ -114,7 +142,7 @@ class AppController:
         try:
             while self.running:
                 self.handle_buttons()
-                if self.timer.enabled:
+                if self.timer.enabled and not self.selected_timer:
                     self.timer.update()
                 self.display.update_numbers(self.timer)
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
