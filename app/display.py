@@ -132,6 +132,16 @@ class Display:
             w, _ = self.draw.textsize(str(self.status_c), font=font)
             self.draw.text((self.width - w - 2, self.height - 12), str(self.status_c), font=font, fill=0)
 
+    def _render_status_and_numbers(self, open_num, close_num, status_a, status_b, status_c):
+        self.status_a = status_a
+        self.status_b = status_b
+        self.status_c = status_c
+        self._create_background()
+        self.image = self.background.copy()
+        self.draw = ImageDraw.Draw(self.image)
+        self._draw_label_number(18, "OPEN", open_num)
+        self._draw_label_number(42, "CLOSE", close_num)
+
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
         current_state = {
             'open_num': open_num,
@@ -144,16 +154,7 @@ class Display:
             logger.debug("Display.draw_layout called: open=%s, close=%s, a=%s, b=%s, c=%s", open_num, close_num, status_a,
                          status_b, status_c)
             self._last_state = current_state.copy()
-
-        self.status_a = status_a
-        self.status_b = status_b
-        self.status_c = status_c
-        self._create_background()
-        self.image = self.background.copy()
-        self.draw = ImageDraw.Draw(self.image)
-        self._draw_label_number(18, "OPEN", open_num)
-        self._draw_label_number(42, "CLOSE", close_num)
-
+        self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c)
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
         if timer.status == "OPEN":
@@ -187,15 +188,7 @@ class Display:
                 curr_a, curr_b, curr_c
             )
             self._last_state = current_state.copy()
-
-        self.image = self.background.copy()
-        self.draw = ImageDraw.Draw(self.image)
-        self._draw_label_number(18, "OPEN", open_remaining)
-        self._draw_label_number(42, "CLOSE", close_remaining)
-        self.status_a = curr_a
-        self.status_b = curr_b
-        self.status_c = curr_c
-
+        self._render_status_and_numbers(open_remaining, close_remaining, curr_a, curr_b, curr_c)
 
 if __name__ == "__main__":
     display = Display()
