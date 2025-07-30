@@ -60,24 +60,20 @@ class AppController:
                 if self.key2_press_time is not None:
                     duration = time.monotonic() - self.key2_press_time
                     if duration >= 2.0:
-                        # Long press: stop and reset timer, but DO NOT start it!
+                        # Long press: full reset and remain stopped
                         self.timer.enabled = False
                         self.timer.elapsed = 0
                         self.timer.show_zero = False
                         self.timer.status = "OPEN"
+                        # Optionally: reset open/close times to persisted values
+                        self.timer.load_settings()
                         logging.info("Timer stopped and reset (long press).")
-                        # Prevent short-press logic from running:
-                        self.key2_press_time = None
-                        self.key2_was_pressed = False
-                        return  # <--- THIS prevents following code from running
                     else:
-                        # Short press: toggle pause/resume
+                        # Short press: only pause/resume, DO NOT reset anything
                         if not self.timer.enabled:
                             self.timer.enabled = True
                             self.timer.last_update_time = time.monotonic()
-                            self.timer.status = "OPEN"
-                            self.timer.elapsed = 0
-                            logging.info("Timer started/resumed (short press).")
+                            logging.info("Timer resumed (short press).")
                         else:
                             self.timer.enabled = False
                             logging.info("Timer paused (short press).")
