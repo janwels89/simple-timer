@@ -1,4 +1,9 @@
 import platform
+import sys
+import os
+
+# Add the repo root to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def is_arm():
     return 'arm' in platform.machine() or 'aarch64' in platform.machine()

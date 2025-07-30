@@ -1,4 +1,9 @@
 from app.timer import TimerController
+import sys
+import os
+
+# Add the repo root to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def test_timercontroller_init_and_update(tmp_path, monkeypatch):
     # Patch settings file location to avoid writing to real file system
