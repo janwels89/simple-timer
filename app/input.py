@@ -42,8 +42,8 @@ class JoystickInput:
       press: 13
     """
     _pin_mapping = {
-        "up": 6,
-        "down": 19,
+        "up": 19,
+        "down": 6,
         "left": 5,
         "right": 26,
         "press": 13,
