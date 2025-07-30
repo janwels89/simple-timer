@@ -69,6 +69,8 @@ class AppController:
                         if not self.timer.enabled:
                             self.timer.enabled = True
                             self.timer.last_update_time = time.monotonic()
+                            self.timer.status = "OPEN"
+                            self.timer.elapsed = 0
                             logging.info("Timer started/resumed (short press).")
                         else:
                             self.timer.enabled = False
