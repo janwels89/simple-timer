@@ -20,6 +20,12 @@ class AppController:
         self.key2_was_pressed = False
         self.key2_press_time = None
 
+        # For state change logging
+        self._last_timer_enabled = self.timer.enabled
+        self._last_timer_status = self.timer.status
+        self._last_timer_mode = self.timer.mode
+        self._last_timer_elapsed = self.timer.elapsed
+
         # Display initialization
         self.display.hw.Init()
         self.display.hw.clear()
@@ -84,6 +90,26 @@ class AppController:
 
         # You can add joystick/button handling for time adjustment here if needed
 
+    def log_timer_state_changes(self):
+        # Only log when something actually changes
+        if self.timer.enabled != self._last_timer_enabled:
+            logger.debug(f"Timer enabled changed: {self._last_timer_enabled} -> {self.timer.enabled}")
+            self._last_timer_enabled = self.timer.enabled
+
+        if self.timer.status != self._last_timer_status:
+            logger.debug(f"Timer status changed: {self._last_timer_status} -> {self.timer.status}")
+            self._last_timer_status = self.timer.status
+
+        if self.timer.mode != self._last_timer_mode:
+            logger.debug(f"Timer mode changed: {self._last_timer_mode} -> {self.timer.mode}")
+            self._last_timer_mode = self.timer.mode
+
+        if self.timer.elapsed != self._last_timer_elapsed:
+            # Only log every full second change for less spam
+            if int(self.timer.elapsed) != int(self._last_timer_elapsed):
+                logger.debug(f"Timer elapsed changed: {int(self._last_timer_elapsed)} -> {int(self.timer.elapsed)}")
+            self._last_timer_elapsed = self.timer.elapsed
+
     def run(self):
         try:
             while self.running:
@@ -92,6 +118,7 @@ class AppController:
                     self.timer.update()
                 self.display.update_numbers(self.timer)
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
+                self.log_timer_state_changes()
                 time.sleep(0.1)
         finally:
             self.buttons.cleanup()
