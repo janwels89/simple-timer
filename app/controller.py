@@ -153,7 +153,7 @@ class AppController:
                     self.timer.status_a = self._clock_symbols[self._clock_index]
                 else:
                     self.timer.status_a = ""
-                self.display.update_numbers(self.timer)
+                self.display.update_values(self.timer)
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
                 self.log_timer_state_changes()
                 time.sleep(0.1)

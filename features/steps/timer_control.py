@@ -82,7 +82,7 @@ def step_check_timer_changed(context, change):
 def step_impl(context):
     # Use the status values from context (they should not be changed here)
     # Only open_num and close_num reflect the timer update
-    context.display.update_numbers(context.timer)
+    context.display.update_values(context.timer)
 
     # Optionally, save the image for inspection
     context.display.save("test_output.png")

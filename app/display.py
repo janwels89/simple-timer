@@ -79,12 +79,10 @@ class Display:
         return "features.steps.mocks" in self.hw.__class__.__module__
 
     def getbuffer(self, image):
-        # No per-frame logging here to avoid console spam
         rotated = image.transpose(Image.ROTATE_180)
         return self.hw.getbuffer(rotated)
 
     def ShowImage(self, image):
-        # No per-frame logging here to avoid console spam
         result = self.hw.ShowImage(image)
         if self._is_mock():
             self.image.save("mock_output.png")
@@ -120,8 +118,21 @@ class Display:
         self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
         self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
 
+    def _draw_statuses(self):
+        font = self.font_status
+        # status_a: left bottom
+        if getattr(self, "status_a", ""):
+            self.draw.text((2, self.height - 12), str(self.status_a), font=font, fill=0)
+        # status_b: center bottom
+        if getattr(self, "status_b", ""):
+            w, _ = self.draw.textsize(str(self.status_b), font=font)
+            self.draw.text((self.width // 2 - w // 2, self.height - 12), str(self.status_b), font=font, fill=0)
+        # status_c: right bottom
+        if getattr(self, "status_c", ""):
+            w, _ = self.draw.textsize(str(self.status_c), font=font)
+            self.draw.text((self.width - w - 2, self.height - 12), str(self.status_c), font=font, fill=0)
+
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
-        # Only log if state changes
         current_state = {
             'open_num': open_num,
             'close_num': close_num,
@@ -142,9 +153,9 @@ class Display:
         self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(18, "OPEN", open_num)
         self._draw_label_number(42, "CLOSE", close_num)
+        self._draw_statuses()
 
-    def update_numbers(self, timer):
-        # Only log if state changes
+    def update_values(self, timer, status_a=None, status_b=None, status_c=None):
         if timer.status == "OPEN":
             if hasattr(timer, "show_zero") and timer.show_zero:
                 open_remaining = 0
@@ -158,18 +169,22 @@ class Display:
             else:
                 close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
 
+        curr_a = status_a if status_a is not None else getattr(timer, "status_a", "")
+        curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")
+        curr_c = status_c if status_c is not None else getattr(timer, "status_c", "")
+
         current_state = {
             'open_remaining': open_remaining,
             'close_remaining': close_remaining,
-            'status_a': getattr(timer, "status_a", ""),
-            'status_b': getattr(timer, "status_b", ""),
-            'status_c': getattr(timer, "status_c", "")
+            'status_a': curr_a,
+            'status_b': curr_b,
+            'status_c': curr_c
         }
         if current_state != self._last_state:
             logger.debug(
-                "Display.update_numbers called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s",
+                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s",
                 open_remaining, close_remaining,
-                current_state['status_a'], current_state['status_b'], current_state['status_c']
+                curr_a, curr_b, curr_c
             )
             self._last_state = current_state.copy()
 
@@ -177,7 +192,10 @@ class Display:
         self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(18, "OPEN", open_remaining)
         self._draw_label_number(42, "CLOSE", close_remaining)
-
+        self.status_a = curr_a
+        self.status_b = curr_b
+        self.status_c = curr_c
+        self._draw_statuses()
 
 if __name__ == "__main__":
     display = Display()
