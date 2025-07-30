@@ -49,6 +49,7 @@ def main(debug=False):
             display.ShowImage(display.getbuffer(display.image))
             logger.debug("Status: %s, Elapsed: %.2fs, Open: %s, Close: %s", timer.status, timer.elapsed,
                         timer.open_time, timer.close_time)
+            time.sleep(0.1)
 
     finally:
         if display is not None and hasattr(display, "hw") and hasattr(display.hw, "RPI"):
