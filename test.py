@@ -1,48 +1,58 @@
 import time
-from app.input import ButtonInput
-from app.display import Display
-from PIL import Image, ImageDraw
+from app.input import ButtonInput, JoystickInput
 
-def initial_display_test(display):
-    """Show initial test pattern or message on display."""
+# Import Display class
+try:
+    from app.display import Display
+    from PIL import ImageDraw, Image
+    display = Display()
     display.hw.Init()
     display.hw.clear()
-    time.sleep(0.2)
+    # Draw rectangle for initial test
     draw = ImageDraw.Draw(display.image)
-    draw.rectangle((10, 10, display.width - 10, display.height - 10), outline=0, fill=0)
+    draw.rectangle((10, 10, display.width - 10, display.height - 10), outline=0, fill=1)
     display.ShowImage(display.getbuffer(display.image))
     time.sleep(1)
-    display.hw.clear()
 
-def flash_display(display, duration=0.2):
-    """Flash the display by filling it black briefly."""
+    # Flash the display (fill black then restore)
     flash_img = Image.new('1', (display.width, display.height), 0)
     display.ShowImage(display.getbuffer(flash_img))
-    time.sleep(duration)
-    display.ShowImage(display.getbuffer(display.background))  # restore
+    time.sleep(0.2)
+    display.ShowImage(display.getbuffer(display.image))
+    time.sleep(0.5)
 
-def main():
-    buttons = ButtonInput()
-    display = Display()
-    initial_display_test(display)  # Call initial display test first
+    # Clear display and set blank background
+    display.hw.clear()
+    display.background = Image.new('1', (display.width, display.height), 1)
+    display.ShowImage(display.getbuffer(display.background))
+except Exception as e:
+    print("Display test skipped or failed:", e)
+    display = None
 
-    print("Press any button (KEY1, KEY2, KEY3) to flash display. Ctrl+C to exit.")
-    try:
-        while True:
-            pressed = buttons.pressed_buttons()
-            if pressed:
-                print(f"Button(s) pressed: {pressed} -> Flashing display!")
-                flash_display(display)
-                # Debounce: wait for release
-                while buttons.pressed_buttons():
-                    time.sleep(0.01)
-            time.sleep(0.01)
-    except KeyboardInterrupt:
-        print("Exiting.")
-    finally:
-        buttons.cleanup()
-        if hasattr(display, "hw") and hasattr(display.hw, "RPI"):
-            display.hw.RPI.module_exit()
+# Input test section
+buttons = ButtonInput()
+joystick = JoystickInput()
 
-if __name__ == "__main__":
-    main()
+print("Testing buttons (KEY1/2/3) and joystick (up/down/left/right/press). Press Ctrl+C to exit.")
+
+try:
+    while True:
+        # Buttons
+        pressed = buttons.pressed_buttons()
+        for button in pressed:
+            print(f"{button} pressed!")
+
+        # Joystick
+        directions = joystick.active_directions()
+        for d in directions:
+            print(f"Joystick {d} active!")
+
+        time.sleep(0.1)
+finally:
+    buttons.cleanup()
+    joystick.cleanup()
+    if display is not None:
+        try:
+            display.hw.clear()
+        except Exception:
+            pass
