@@ -20,7 +20,7 @@ def test_init_defaults(tmp_settings_file):
     assert t.close_time == t.DEFAULT_CLOSE_TIME
     assert t.status == "OPEN"
     assert t.mode == "loop"
-    assert t.enabled is True
+    assert t.enabled is False
     assert t.elapsed == 0
     assert isinstance(t.last_update_time, float)
     assert t.show_zero is False
