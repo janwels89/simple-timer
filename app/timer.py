@@ -76,6 +76,7 @@ class TimerController:
             json.dump(data, f)
 
     def load_settings(self):
+        # Always reset to defaults if file is missing or bad
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
@@ -85,6 +86,9 @@ class TimerController:
             except (FileNotFoundError, json.JSONDecodeError, ValueError):
                 self.open_time = self.DEFAULT_OPEN_TIME
                 self.close_time = self.DEFAULT_CLOSE_TIME
+        else:
+            self.open_time = self.DEFAULT_OPEN_TIME
+            self.close_time = self.DEFAULT_CLOSE_TIME
 
     def reset_settings(self):
         if os.path.exists(SETTINGS_FILE):
