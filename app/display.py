@@ -153,7 +153,7 @@ class Display:
         self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(18, "OPEN", open_num)
         self._draw_label_number(42, "CLOSE", close_num)
-        self._draw_statuses()
+
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
         if timer.status == "OPEN":
@@ -195,7 +195,7 @@ class Display:
         self.status_a = curr_a
         self.status_b = curr_b
         self.status_c = curr_c
-        self._draw_statuses()
+
 
 if __name__ == "__main__":
     display = Display()
