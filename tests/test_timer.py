@@ -1,16 +1,15 @@
 import sys
 import os
-# Add the repo root to sys.path
+import pytest
+
+# Add the repo root to sys.path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import os
-import json
-import pytest
 from app.timer import TimerController
 
 @pytest.fixture
 def tmp_settings_file(tmp_path, monkeypatch):
-    # Patch the settings file location
+    # Patch the settings file location to avoid writing to the real file system
     settings_file = tmp_path / "settings.json"
     monkeypatch.setattr("app.timer.SETTINGS_FILE", str(settings_file))
     yield str(settings_file)
@@ -38,12 +37,14 @@ def test_save_and_load_settings(tmp_settings_file):
     assert t.close_time == 21
 
 def test_load_settings_handles_missing_or_bad_file(tmp_settings_file):
-    # Should revert to defaults if file missing or bad
     t = TimerController()
-    os.remove(tmp_settings_file) if os.path.exists(tmp_settings_file) else None
+    # Remove settings file if present
+    if os.path.exists(tmp_settings_file):
+        os.remove(tmp_settings_file)
     t.open_time = 123
     t.close_time = 456
     t.load_settings()
+    # Should reset to defaults if file missing
     assert t.open_time == t.DEFAULT_OPEN_TIME
     assert t.close_time == t.DEFAULT_CLOSE_TIME
 
@@ -89,7 +90,7 @@ def test_increase_and_decrease_time(tmp_settings_file):
     t.decrease_time()
     assert t.open_time == 0  # Never goes below zero
 
-def test_update_transitions(tmp_settings_file, monkeypatch):
+def test_update_transitions(tmp_settings_file):
     t = TimerController()
     t.open_time = 2
     t.close_time = 3

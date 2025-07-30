@@ -1,22 +1,34 @@
-import platform
 import sys
 import os
+import platform
+import pytest
 
-# Add the repo root to sys.path
+# Add the repo root to sys.path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def is_arm():
     return 'arm' in platform.machine() or 'aarch64' in platform.machine()
 
-if is_arm():
-    from app.input import ButtonInput, JoystickInput
-else:
-    # You must have compatible mock classes for these!
-    from features.steps.mocks.mock_input import ButtonInput, JoystickInput
+@pytest.fixture
+def ButtonInput():
+    if is_arm():
+        from app.input import ButtonInput as RealButtonInput
+        return RealButtonInput
+    else:
+        from features.steps.mocks.mock_input import ButtonInput as MockButtonInput
+        return MockButtonInput
 
-def test_button_input_press_release():
+@pytest.fixture
+def JoystickInput():
+    if is_arm():
+        from app.input import JoystickInput as RealJoystickInput
+        return RealJoystickInput
+    else:
+        from features.steps.mocks.mock_input import JoystickInput as MockJoystickInput
+        return MockJoystickInput
+
+def test_button_input_press_release(ButtonInput):
     btn = ButtonInput()
-    # These methods only exist in your mock, so only run them on x64
     if not is_arm():
         btn.press('KEY1')
     assert btn.is_pressed('KEY1') is True or is_arm()
@@ -24,7 +36,7 @@ def test_button_input_press_release():
         btn.release('KEY1')
         assert btn.is_pressed('KEY1') is False
 
-def test_button_input_pressed_buttons():
+def test_button_input_pressed_buttons(ButtonInput):
     btn = ButtonInput()
     if not is_arm():
         btn.press('KEY1')
@@ -37,7 +49,7 @@ def test_button_input_pressed_buttons():
         assert 'KEY1' not in pressed
         assert 'KEY2' in pressed
 
-def test_joystick_input_active():
+def test_joystick_input_active(JoystickInput):
     js = JoystickInput()
     if not is_arm():
         js.move('up')
