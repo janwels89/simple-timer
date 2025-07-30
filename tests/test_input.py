@@ -1,34 +1,27 @@
-import sys
-import os
-import platform
 import pytest
-
-# Add the repo root to sys.path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+import platform
 
 def is_arm():
     return 'arm' in platform.machine() or 'aarch64' in platform.machine()
 
 @pytest.fixture
-def ButtonInput():
+def button_input():
     if is_arm():
-        from app.input import ButtonInput as RealButtonInput
-        return RealButtonInput
+        from app.input import ButtonInput
     else:
-        from features.steps.mocks.mock_input import ButtonInput as MockButtonInput
-        return MockButtonInput
+        from features.steps.mocks.mock_input import ButtonInput
+    return ButtonInput()
 
 @pytest.fixture
-def JoystickInput():
+def joystick_input():
     if is_arm():
-        from app.input import JoystickInput as RealJoystickInput
-        return RealJoystickInput
+        from app.input import JoystickInput
     else:
-        from features.steps.mocks.mock_input import JoystickInput as MockJoystickInput
-        return MockJoystickInput
+        from features.steps.mocks.mock_input import JoystickInput
+    return JoystickInput()
 
-def test_button_input_press_release(ButtonInput):
-    btn = ButtonInput()
+def test_button_input_press_release(button_input):
+    btn = button_input
     if not is_arm():
         btn.press('KEY1')
     assert btn.is_pressed('KEY1') is True or is_arm()
@@ -36,8 +29,8 @@ def test_button_input_press_release(ButtonInput):
         btn.release('KEY1')
         assert btn.is_pressed('KEY1') is False
 
-def test_button_input_pressed_buttons(ButtonInput):
-    btn = ButtonInput()
+def test_button_input_pressed_buttons(button_input):
+    btn = button_input
     if not is_arm():
         btn.press('KEY1')
         btn.press('KEY2')
@@ -49,8 +42,8 @@ def test_button_input_pressed_buttons(ButtonInput):
         assert 'KEY1' not in pressed
         assert 'KEY2' in pressed
 
-def test_joystick_input_active(JoystickInput):
-    js = JoystickInput()
+def test_joystick_input_active(joystick_input):
+    js = joystick_input
     if not is_arm():
         js.move('up')
         assert js.is_active('up')
