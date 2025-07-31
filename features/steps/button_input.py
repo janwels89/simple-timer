@@ -14,10 +14,19 @@ def step_press_key_for_seconds(context, key, seconds=2):
     GPIO = _get_gpio_module()
     pin = context.buttons._pin_mapping[key]
     with patch("time.sleep", return_value=None):
+        # Simulate press
         GPIO._press(pin)
+        # Call controller logic to process the press
+        context.controller.handle_buttons()
+
+        # Simulate "holding" the button (sleep is mocked, so instant)
         import time
-        time.sleep(seconds)  # This will be instant due to the patch!
+        time.sleep(seconds)
+
+        # Simulate release
         GPIO._release(pin)
+        # Call controller logic again to process the release
+        context.controller.handle_buttons()
 
 @then("the timer module selected should be OPEN")
 def step_check_timer_mode_open(context):

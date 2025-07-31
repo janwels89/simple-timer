@@ -1,4 +1,6 @@
 import time
+from unittest.mock import patch
+
 
 def before_scenario(context, scenario):
     # Set up fake monotonic time and patch for all steps in the scenario
@@ -12,3 +14,13 @@ def after_scenario(context, scenario):
     # Restore the original monotonic after scenario
     if hasattr(context, "_original_monotonic"):
         time.monotonic = context._original_monotonic
+
+
+def before_all(context):
+    # Patch time.sleep to instantly return, for all steps
+    context._sleep_patcher = patch("time.sleep", return_value=None)
+    context._sleep_patcher.start()
+
+def after_all(context):
+    # Stop the patch after all tests are done
+    context._sleep_patcher.stop()
