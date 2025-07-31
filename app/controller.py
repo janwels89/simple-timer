@@ -64,12 +64,16 @@ class AppController:
             return
         if which == "OPEN":
             self.timer._open_time_base = max(1, self.timer._open_time_base + delta)
-            self.timer.randomize_next_open_time()
+            # Only randomize next_time if the next period will be OPEN
+            if self.timer.status == "CLOSE":
+                self.timer.next_time = self.timer._random_period("OPEN")
             logging.info("%s OPEN base time to %d", "Increased" if delta > 0 else "Decreased",
                          self.timer._open_time_base)
         elif which == "CLOSE":
             self.timer._close_time_base = max(1, self.timer._close_time_base + delta)
-            self.timer.randomize_next_close_time()
+            # Only randomize next_time if the next period will be CLOSE
+            if self.timer.status == "OPEN":
+                self.timer.next_time = self.timer._random_period("CLOSE")
             logging.info("%s CLOSE base time to %d", "Increased" if delta > 0 else "Decreased",
                          self.timer._close_time_base)
 
