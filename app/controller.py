@@ -51,7 +51,10 @@ class AppController:
         self.timer.status_b = ""
         self.timer.status_c = self.timer.mode
 
-        self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c)
+        # Pass base values if in random mode
+        open_base = getattr(self.timer, "open_time_base", None) if self.timer.mode == "random" else None
+        close_base = getattr(self.timer, "close_time_base", None) if self.timer.mode == "random" else None
+        self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c, open_base, close_base)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
     def handle_buttons(self):

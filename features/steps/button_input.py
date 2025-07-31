@@ -42,5 +42,5 @@ def step_timer_should_be_enabled(context):
 def then_timer_settings_are_reset(context):
     # Ensure settings are reloaded after reset for assertion
     context.timer.load_settings()
-    assert context.timer.open_time == context.timer.DEFAULT_OPEN_TIME, "Open time not reset to default"
-    assert context.timer.close_time == context.timer.DEFAULT_CLOSE_TIME, "Close time not reset to default"
+    assert context.timer.open_time_base == context.timer.DEFAULT_OPEN_TIME, "Open time not reset to default"
+    assert context.timer.close_time_base == context.timer.DEFAULT_CLOSE_TIME, "Close time not reset to default"

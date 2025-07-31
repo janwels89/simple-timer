@@ -66,14 +66,18 @@ def step_reboot_device(context):
 
 @then("the OPEN time should be {seconds:d} seconds")
 def step_check_open_time(context, seconds):
-    assert context.timer.open_time == seconds, (
-        f"Expected OPEN time {seconds}, but got {context.timer.open_time}"
+    # Check base time (saved/configured value)
+    open_base = getattr(context.timer, "open_time_base", context.timer.open_time)
+    assert open_base == seconds, (
+        f"Expected OPEN base time {seconds}, but got {open_base}"
     )
 
 @then("the CLOSE time should be {seconds:d} seconds")
 def step_check_close_time(context, seconds):
-    assert context.timer.close_time == seconds, (
-        f"Expected CLOSE time {seconds}, but got {context.timer.close_time}"
+    # Check base time (saved/configured value)
+    close_base = getattr(context.timer, "close_time_base", context.timer.close_time)
+    assert close_base == seconds, (
+        f"Expected CLOSE base time {seconds}, but got {close_base}"
     )
 
 @when("the timer settings are reset")

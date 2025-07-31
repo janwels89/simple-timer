@@ -100,9 +100,10 @@ class Display:
             logger.warning(f"Falling back to default font: {e}")
             return ImageFont.load_default()
 
-    def _draw_label_number(self, y, label, number, fill=0):
+    def _draw_label_number(self, y, label, number, fill=0, base_number=None):
         label_font = self.font_label
         number_font = self.font_number
+        small_font = self.font_status  # Use status font for base values
 
         label_x = 5
         label_y = y
@@ -112,11 +113,26 @@ class Display:
         number_bbox = number_font.getbbox(number_str)
         number_w = number_bbox[2] - number_bbox[0]
         number_h = number_bbox[3] - number_bbox[1]
-        num_x = self.width - number_w - 20
+        
+        # Position the main number
+        if base_number is not None:
+            # When showing base value, position main number a bit more to the left
+            num_x = self.width - number_w - 35
+        else:
+            num_x = self.width - number_w - 20
         num_y = y + max(0, (label_h - number_h) // 2) + 2
 
         self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
         self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
+        
+        # Draw base number in smaller font if provided
+        if base_number is not None and base_number != number:
+            base_str = f"({base_number})"
+            base_bbox = small_font.getbbox(base_str)
+            base_w = base_bbox[2] - base_bbox[0]
+            base_x = self.width - base_w - 5
+            base_y = y + max(0, (label_h - (base_bbox[3] - base_bbox[1])) // 2) + 2
+            self.draw.text((base_x, base_y), base_str, font=small_font, fill=fill)
 
     def _draw_statuses(self):
         font = self.font_status
@@ -132,29 +148,31 @@ class Display:
             w, _ = self.draw.textsize(str(self.status_c), font=font)
             self.draw.text((self.width - w - 2, self.height - 12), str(self.status_c), font=font, fill=0)
 
-    def _render_status_and_numbers(self, open_num, close_num, status_a, status_b, status_c):
+    def _render_status_and_numbers(self, open_num, close_num, status_a, status_b, status_c, open_base=None, close_base=None):
         self.status_a = status_a
         self.status_b = status_b
         self.status_c = status_c
         self._create_background()
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        self._draw_label_number(18, "OPEN", open_num)
-        self._draw_label_number(42, "CLOSE", close_num)
+        self._draw_label_number(18, "OPEN", open_num, base_number=open_base)
+        self._draw_label_number(42, "CLOSE", close_num, base_number=close_base)
 
-    def draw_layout(self, open_num, close_num, status_a, status_b, status_c):
+    def draw_layout(self, open_num, close_num, status_a, status_b, status_c, open_base=None, close_base=None):
         current_state = {
             'open_num': open_num,
             'close_num': close_num,
             'status_a': status_a,
             'status_b': status_b,
-            'status_c': status_c
+            'status_c': status_c,
+            'open_base': open_base,
+            'close_base': close_base
         }
         if current_state != self._last_state:
-            logger.debug("Display.draw_layout called: open=%s, close=%s, a=%s, b=%s, c=%s", open_num, close_num, status_a,
-                         status_b, status_c)
+            logger.debug("Display.draw_layout called: open=%s, close=%s, a=%s, b=%s, c=%s, open_base=%s, close_base=%s", 
+                        open_num, close_num, status_a, status_b, status_c, open_base, close_base)
             self._last_state = current_state.copy()
-        self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c)
+        self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c, open_base, close_base)
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
         if timer.status == "OPEN":
@@ -174,21 +192,30 @@ class Display:
         curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")
         curr_c = status_c if status_c is not None else getattr(timer, "status_c", "")
 
+        # Include base values if in random mode
+        open_base = None
+        close_base = None
+        if hasattr(timer, "mode") and timer.mode == "random":
+            open_base = getattr(timer, "open_time_base", None)
+            close_base = getattr(timer, "close_time_base", None)
+
         current_state = {
             'open_remaining': open_remaining,
             'close_remaining': close_remaining,
             'status_a': curr_a,
             'status_b': curr_b,
-            'status_c': curr_c
+            'status_c': curr_c,
+            'open_base': open_base,
+            'close_base': close_base
         }
         if current_state != self._last_state:
             logger.debug(
-                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s",
+                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s, open_base=%s, close_base=%s",
                 open_remaining, close_remaining,
-                curr_a, curr_b, curr_c
+                curr_a, curr_b, curr_c, open_base, close_base
             )
             self._last_state = current_state.copy()
-        self._render_status_and_numbers(open_remaining, close_remaining, curr_a, curr_b, curr_c)
+        self._render_status_and_numbers(open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base)
 
 if __name__ == "__main__":
     display = Display()
