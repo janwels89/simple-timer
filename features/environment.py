@@ -1,4 +1,5 @@
 import time
+import os
 from unittest.mock import patch
 
 
@@ -14,6 +15,14 @@ def after_scenario(context, scenario):
     # Restore the original monotonic after scenario
     if hasattr(context, "_original_monotonic"):
         time.monotonic = context._original_monotonic
+
+def after_feature(context, feature):
+    # Clean up settings.json after each feature to prevent test pollution
+    if os.path.exists("settings.json"):
+        try:
+            os.remove("settings.json")
+        except:
+            pass
 
 
 def before_all(context):
