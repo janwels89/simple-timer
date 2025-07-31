@@ -134,11 +134,25 @@ class TimerController:
            (self.mode != "random" and (prev_open != self.open_time or prev_close != self.close_time)):
             self._log_state_change()
 
-    def increase_time(self):
-        self.adjust_time(+1)
+    def _change_time(self, attr, delta):
+        prev = getattr(self, attr)
+        new_value = max(0, prev + delta)
+        setattr(self, attr, new_value)
+        self.save_settings()
+        if prev != new_value:
+            self._log_state_change()
 
-    def decrease_time(self):
-        self.adjust_time(-1)
+    def increase_open_time(self):
+        self._change_time('open_time', +1)
+
+    def decrease_open_time(self):
+        self._change_time('open_time', -1)
+
+    def increase_close_time(self):
+        self._change_time('close_time', +1)
+
+    def decrease_close_time(self):
+        self._change_time('close_time', -1)
 
     def save_settings(self):
         # Save the base values if in random mode, otherwise save current values

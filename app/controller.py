@@ -103,25 +103,24 @@ class AppController:
 
         # Joystick up/down: adjust selected timer value
         if self.selected_timer:
-            if self.joystick.is_active('up'):
-                self.timer.increase_time()
-                if self.selected_timer == "OPEN":
-                    current_display = self.timer._open_time_base if self.timer.mode == "random" and self.timer._open_time_base is not None else self.timer.open_time
-                    logging.info("Increased OPEN time to %d", current_display)
-                elif self.selected_timer == "CLOSE":
-                    current_display = self.timer._close_time_base if self.timer.mode == "random" and self.timer._close_time_base is not None else self.timer.close_time
-                    logging.info("Increased CLOSE time to %d", current_display)
-                time.sleep(0.2)  # Debounce
+            if self.selected_timer:
+                if self.joystick.is_active('up'):
+                    if self.selected_timer == "OPEN":
+                        self.timer.increase_open_time()
+                        logging.info("Increased OPEN time to %d", self.timer.open_time)
+                    elif self.selected_timer == "CLOSE":
+                        self.timer.increase_close_time()
+                        logging.info("Increased CLOSE time to %d", self.timer.close_time)
+                    time.sleep(0.2)  # Debounce
 
-            if self.joystick.is_active('down'):
-                self.timer.decrease_time()
-                if self.selected_timer == "OPEN":
-                    current_display = self.timer._open_time_base if self.timer.mode == "random" and self.timer._open_time_base is not None else self.timer.open_time
-                    logging.info("Decreased OPEN time to %d", current_display)
-                elif self.selected_timer == "CLOSE":
-                    current_display = self.timer._close_time_base if self.timer.mode == "random" and self.timer._close_time_base is not None else self.timer.close_time
-                    logging.info("Decreased CLOSE time to %d", current_display)
-                time.sleep(0.2)  # Debounce
+                if self.joystick.is_active('down'):
+                    if self.selected_timer == "OPEN":
+                        self.timer.decrease_open_time()
+                        logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                    elif self.selected_timer == "CLOSE":
+                        self.timer.decrease_close_time()
+                        logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                    time.sleep(0.2)  # Debounce
 
         if self.joystick.is_active('right'):
             if self.selected_timer == "OPEN":
