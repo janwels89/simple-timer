@@ -1,37 +1,23 @@
 from behave import given, when, then
+from app.input import ButtonInput, _get_gpio_module
+from unittest.mock import patch
+import time
 
 
 @given("the timer is disabled")
 def step_timer_disabled(context):
     context.timer.enabled = False
 
-@when("the user presses KEY1")
-def step_press_key1(context):
-    # Simulate KEY1 press using the button mock
-    context.buttons.press("KEY1")
-    # Simulate logic (in reality, your app would read button state and act)
-    context.timer.status = "CLOSE"
-    context.buttons.release("KEY1")
-
-@when("the user presses KEY3")
-def step_press_key3(context):
-    context.buttons.press("KEY3")
-    context.timer.status = "OPEN"
-    context.buttons.release("KEY3")
-
-@when("the user presses KEY2")
-def step_press_key2(context):
-    context.buttons.press("KEY2")
-    # Toggle enable state
-    context.timer.enabled = not context.timer.enabled
-    context.buttons.release("KEY2")
-
-@when('the user presses KEY2 for 2 seconds')
-def when_user_presses_key2_for_two_seconds(context):
-    context.buttons.press("KEY2")
-    # Simulate long-press logic: reset settings
-    context.timer.reset_settings()
-    context.buttons.release("KEY2")
+@when('the user presses {key}')
+@when('the user presses {key} for {seconds:d} seconds')
+def step_press_key_for_seconds(context, key, seconds=2):
+    GPIO = _get_gpio_module()
+    pin = context.buttons._pin_mapping[key]
+    with patch("time.sleep", return_value=None):
+        GPIO._press(pin)
+        import time
+        time.sleep(seconds)  # This will be instant due to the patch!
+        GPIO._release(pin)
 
 @then("the timer module selected should be OPEN")
 def step_check_timer_mode_open(context):
@@ -43,7 +29,7 @@ def step_check_timer_mode_close(context):
 
 @then("the timer should be enabled")
 def step_timer_should_be_enabled(context):
-    assert context.timer.enabled is True, "Expected timer to be enabled, but it is disabled"
+    assert context.timer.enabled, "Expected timer to be enabled, but it is disabled"
 
 @then('the timer settings are reset')
 def then_timer_settings_are_reset(context):
