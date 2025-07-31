@@ -23,10 +23,10 @@ def step_increment_open(context):
 
 @then('the display should show "{expected}" for OPEN')
 def step_display_shows_open(context, expected):
-    # You could use OCR here, but for a testable approach, you can check the image buffer or patch Display for testing.
-    # For simplicity, check the open_time directly:
-    actual = context.timer.open_time
-    assert str(actual) == expected, f"Expected OPEN to show {expected}, but got {actual}"
+    display_value = str(context.display._last_state["open_num"])
+    timer_value = str(context.timer.open_time)
+    assert display_value == expected, f"Expected OPEN to show {expected}, but display showed {display_value}"
+    assert timer_value == expected, f"Expected timer OPEN value to be {expected}, but got {timer_value}"
 
 @then('the display should show "{expected}" for CLOSE')
 def step_display_shows_close(context, expected):
