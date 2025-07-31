@@ -181,32 +181,28 @@ class Display:
         self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c, open_base, close_base)
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
+        is_random = getattr(timer, "mode", "") == "random"
         if timer.status == "OPEN":
-            if hasattr(timer, "show_zero") and timer.show_zero:
-                open_remaining = 0
+            open_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
+                timer.open_time - timer.elapsed)))
+            if is_random:
+                close_remaining = getattr(timer, "next_time", timer.close_time)  # next CLOSE period
             else:
-                open_remaining = max(0, int(round(timer.open_time - timer.elapsed)))
-            close_remaining = timer.close_time
-            # Only show next_time as the next CLOSE period
-            open_next = None
-            close_next = getattr(timer, "next_time", None)
+                close_remaining = timer.close_time  # fixed CLOSE
         else:
-            open_remaining = timer.open_time
-            if hasattr(timer, "show_zero") and timer.show_zero:
-                close_remaining = 0
+            if is_random:
+                open_remaining = getattr(timer, "next_time", timer.open_time)  # next OPEN period
             else:
-                close_remaining = max(0, int(round(timer.close_time - timer.elapsed)))
-            # Only show next_time as the next OPEN period
-            open_next = getattr(timer, "next_time", None)
-            close_next = None
+                open_remaining = timer.open_time  # fixed OPEN
+            close_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
+                timer.close_time - timer.elapsed)))
 
         curr_a = status_a if status_a is not None else getattr(timer, "status_a", "")
         curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")
         curr_c = status_c if status_c is not None else getattr(timer, "status_c", "")
 
-        # Only pass base values if in random mode
-        open_base = timer._open_time_base if getattr(timer, "mode", "") == "random" else None
-        close_base = timer._close_time_base if getattr(timer, "mode", "") == "random" else None
+        open_base = timer._open_time_base if is_random else None
+        close_base = timer._close_time_base if is_random else None
 
         current_state = {
             'open_remaining': open_remaining,
@@ -216,20 +212,17 @@ class Display:
             'status_c': curr_c,
             'open_base': open_base,
             'close_base': close_base,
-            'open_next': open_next,
-            'close_next': close_next
         }
         if current_state != self._last_state:
             logger.debug(
-                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s, open_base=%s, close_base=%s, open_next=%s, close_next=%s",
-                open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base, open_next, close_next
+                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s, open_base=%s, close_base=%s",
+                open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base
             )
             self._last_state = current_state.copy()
-        # Pass the next values to your render method
         self._render_status_and_numbers(
-            open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base,
-            open_next=open_next, close_next=close_next
+            open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base
         )
+
 
 if __name__ == "__main__":
     display = Display()

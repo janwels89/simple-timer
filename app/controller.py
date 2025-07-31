@@ -7,16 +7,14 @@ from app.input import ButtonInput, JoystickInput
 logger = logging.getLogger(__name__)
 
 class AppController:
-
     def __init__(self, debug=False, display_hardware=None):
         self.debug = debug
-        from app.display import Display
+
         if display_hardware is not None:
             self.display = Display(hardware=display_hardware)
         else:
             self.display = Display()
 
-        self.display = Display()
         self.timer = TimerController()
         self.buttons = ButtonInput()
         self.joystick = JoystickInput()
@@ -30,7 +28,6 @@ class AppController:
         self._last_timer_status = self.timer.status
         self._last_timer_mode = self.timer.mode
         self._last_timer_elapsed = self.timer.elapsed
-
 
         # Spinner for status_a
         self._clock_symbols = ["|", "/", "-", "\\"]
@@ -58,25 +55,6 @@ class AppController:
         self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
-    def adjust_base_time(self, which, delta):
-        """Adjust base time for 'OPEN' or 'CLOSE' by delta, only in random mode."""
-        if self.timer.mode != "random":
-            return
-        if which == "OPEN":
-            self.timer._open_time_base = max(1, self.timer._open_time_base + delta)
-            # Only randomize next_time if the next period will be OPEN
-            if self.timer.status == "CLOSE":
-                self.timer.next_time = self.timer._random_period("OPEN")
-            logging.info("%s OPEN base time to %d", "Increased" if delta > 0 else "Decreased",
-                         self.timer._open_time_base)
-        elif which == "CLOSE":
-            self.timer._close_time_base = max(1, self.timer._close_time_base + delta)
-            # Only randomize next_time if the next period will be CLOSE
-            if self.timer.status == "OPEN":
-                self.timer.next_time = self.timer._random_period("CLOSE")
-            logging.info("%s CLOSE base time to %d", "Increased" if delta > 0 else "Decreased",
-                         self.timer._close_time_base)
-
     def handle_buttons(self):
         # KEY2: Pause/Resume (short press), Reset (long press)
         if self.buttons.is_pressed('KEY2'):
@@ -100,10 +78,10 @@ class AppController:
                         if not self.timer.enabled:
                             self.timer.enabled = True
                             self.timer.last_update_time = time.monotonic()
-                            logging.info("Timer resumed (short press).")
+                            logger.info("Timer resumed (short press).")
                         else:
                             self.timer.enabled = False
-                            logging.info("Timer paused (short press).")
+                            logger.info("Timer paused (short press).")
                 self.key2_press_time = None
                 self.key2_was_pressed = False
 
@@ -111,17 +89,17 @@ class AppController:
         if self.buttons.is_pressed('KEY3'):
             if self.selected_timer != "OPEN":
                 self.selected_timer = "OPEN"
-                logging.info("Selected OPEN timer for editing.")
+                logger.info("Selected OPEN timer for editing.")
 
         # KEY1: select CLOSE timer for editing
         if self.buttons.is_pressed('KEY1'):
             if self.selected_timer != "CLOSE":
                 self.selected_timer = "CLOSE"
-                logging.info("Selected CLOSE timer for editing.")
+                logger.info("Selected CLOSE timer for editing.")
 
         # KEY2: exit selection mode if in selection
         if self.selected_timer and self.buttons.is_pressed('KEY2'):
-            logging.info(f"Exited selection mode for {self.selected_timer}.")
+            logger.info(f"Exited selection mode for {self.selected_timer}.")
             self.selected_timer = None
 
         # Joystick up/down: adjust selected timer value
@@ -137,16 +115,17 @@ class AppController:
                     # Adjust base value in random mode
                     if self.selected_timer == "OPEN":
                         self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
-                        self.timer.randomize_if_needed(period="OPEN")
-                        logging.info(
+                        # Always randomize both periods when in random mode and value changes
+                        self.timer.randomize_if_needed()
+                        logger.info(
                             "%s OPEN base time to %d",
                             "Increased" if direction > 0 else "Decreased",
                             self.timer._open_time_base
                         )
                     elif self.selected_timer == "CLOSE":
                         self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
-                        self.timer.randomize_if_needed(period="CLOSE")
-                        logging.info(
+                        self.timer.randomize_if_needed()
+                        logger.info(
                             "%s CLOSE base time to %d",
                             "Increased" if direction > 0 else "Decreased",
                             self.timer._close_time_base
@@ -155,39 +134,36 @@ class AppController:
                     # Adjust direct value in loop mode
                     if self.selected_timer == "OPEN":
                         if direction > 0:
-                            self.timer.increase_open_time()
-                            logging.info("Increased OPEN time to %d", self.timer.open_time)
+                            self.timer.open_time = max(1, self.timer.open_time + 1)
+                            logger.info("Increased OPEN time to %d", self.timer.open_time)
                         else:
-                            self.timer.decrease_open_time()
-                            logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                            self.timer.open_time = max(1, self.timer.open_time - 1)
+                            logger.info("Decreased OPEN time to %d", self.timer.open_time)
+                        self.timer.save_settings()
                     elif self.selected_timer == "CLOSE":
                         if direction > 0:
-                            self.timer.increase_close_time()
-                            logging.info("Increased CLOSE time to %d", self.timer.close_time)
+                            self.timer.close_time = max(1, self.timer.close_time + 1)
+                            logger.info("Increased CLOSE time to %d", self.timer.close_time)
                         else:
-                            self.timer.decrease_close_time()
-                            logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                            self.timer.close_time = max(1, self.timer.close_time - 1)
+                            logger.info("Decreased CLOSE time to %d", self.timer.close_time)
+                        self.timer.save_settings()
                 time.sleep(0.2)  # Debounce
 
+        # Joystick right: toggle mode if no timer is selected, otherwise decrease time for selected timer
         if self.joystick.is_active('right'):
             if self.selected_timer == "OPEN":
-                self.timer.decrease_time()
-                current_display = self.timer._open_time_base if self.timer.mode == "random" and self.timer._open_time_base is not None else self.timer.open_time
-                logging.info("Decreased OPEN time to %d", current_display)
-            elif self.selected_timer == "CLOSE":
-                self.timer.decrease_time()
-                current_display = self.timer._close_time_base if self.timer.mode == "random" and self.timer._close_time_base is not None else self.timer.close_time
-                logging.info("Decreased CLOSE time to %d", current_display)
+                pass
             else:
-                # No timer selected - toggle random mode
+                # No timer selected - toggle random/loop mode
                 if self.timer.mode == "loop":
                     self.timer.mode = "random"
                     self.timer.randomize_if_needed()
-                    logging.info("Switched to random mode")
+                    logger.info("Switched to random mode")
                 else:
                     self.timer.mode = "loop"
                     self.timer.randomize_if_needed()  # This will restore base values
-                    logging.info("Switched to loop mode")
+                    logger.info("Switched to loop mode")
                 # Always update status_c to reflect the new mode
                 self.timer.status_c = self.timer.mode
                 # Redraw the display with updated status_c
@@ -200,6 +176,7 @@ class AppController:
                 )
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
             time.sleep(0.2)  # Debounce
+
     def log_timer_state_changes(self):
         # Only log when something actually changes
         if self.timer.enabled != self._last_timer_enabled:
