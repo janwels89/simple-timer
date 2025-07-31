@@ -7,11 +7,14 @@ from app.input import ButtonInput, JoystickInput
 logger = logging.getLogger(__name__)
 
 class AppController:
-    def __init__(self, debug=False):
-        if debug:
-            logging.basicConfig(level=logging.DEBUG)
+
+    def __init__(self, debug=False, display_hardware=None):
+        self.debug = debug
+        from app.display import Display
+        if display_hardware is not None:
+            self.display = Display(hardware=display_hardware)
         else:
-            logging.basicConfig(level=logging.INFO)
+            self.display = Display()
 
         self.display = Display()
         self.timer = TimerController()
