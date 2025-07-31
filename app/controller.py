@@ -28,6 +28,7 @@ class AppController:
         self._last_timer_mode = self.timer.mode
         self._last_timer_elapsed = self.timer.elapsed
 
+
         # Spinner for status_a
         self._clock_symbols = ["|", "/", "-", "\\"]
         self._clock_index = 0
@@ -53,6 +54,21 @@ class AppController:
 
         self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
+
+    def adjust_base_time(self, which, delta):
+        """Adjust base time for 'OPEN' or 'CLOSE' by delta, only in random mode."""
+        if self.timer.mode != "random":
+            return
+        if which == "OPEN":
+            self.timer._open_time_base = max(1, self.timer._open_time_base + delta)
+            self.timer.randomize_if_needed(period="OPEN")
+            logging.info("%s OPEN base time to %d", "Increased" if delta > 0 else "Decreased",
+                         self.timer._open_time_base)
+        elif which == "CLOSE":
+            self.timer._close_time_base = max(1, self.timer._close_time_base + delta)
+            self.timer.randomize_if_needed(period="CLOSE")
+            logging.info("%s CLOSE base time to %d", "Increased" if delta > 0 else "Decreased",
+                         self.timer._close_time_base)
 
     def handle_buttons(self):
         # KEY2: Pause/Resume (short press), Reset (long press)
@@ -103,24 +119,48 @@ class AppController:
 
         # Joystick up/down: adjust selected timer value
         if self.selected_timer:
-            if self.selected_timer:
-                if self.joystick.is_active('up'):
-                    if self.selected_timer == "OPEN":
-                        self.timer.increase_open_time()
-                        logging.info("Increased OPEN time to %d", self.timer.open_time)
-                    elif self.selected_timer == "CLOSE":
-                        self.timer.increase_close_time()
-                        logging.info("Increased CLOSE time to %d", self.timer.close_time)
-                    time.sleep(0.2)  # Debounce
+            direction = 0
+            if self.joystick.is_active('up'):
+                direction = 1
+            elif self.joystick.is_active('down'):
+                direction = -1
 
-                if self.joystick.is_active('down'):
+            if direction != 0:
+                if self.timer.mode == "random":
+                    # Adjust base value in random mode
                     if self.selected_timer == "OPEN":
-                        self.timer.decrease_open_time()
-                        logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                        self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
+                        self.timer.randomize_if_needed(period="OPEN")
+                        logging.info(
+                            "%s OPEN base time to %d",
+                            "Increased" if direction > 0 else "Decreased",
+                            self.timer._open_time_base
+                        )
                     elif self.selected_timer == "CLOSE":
-                        self.timer.decrease_close_time()
-                        logging.info("Decreased CLOSE time to %d", self.timer.close_time)
-                    time.sleep(0.2)  # Debounce
+                        self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
+                        self.timer.randomize_if_needed(period="CLOSE")
+                        logging.info(
+                            "%s CLOSE base time to %d",
+                            "Increased" if direction > 0 else "Decreased",
+                            self.timer._close_time_base
+                        )
+                else:
+                    # Adjust direct value in loop mode
+                    if self.selected_timer == "OPEN":
+                        if direction > 0:
+                            self.timer.increase_open_time()
+                            logging.info("Increased OPEN time to %d", self.timer.open_time)
+                        else:
+                            self.timer.decrease_open_time()
+                            logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                    elif self.selected_timer == "CLOSE":
+                        if direction > 0:
+                            self.timer.increase_close_time()
+                            logging.info("Increased CLOSE time to %d", self.timer.close_time)
+                        else:
+                            self.timer.decrease_close_time()
+                            logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                time.sleep(0.2)  # Debounce
 
         if self.joystick.is_active('right'):
             if self.selected_timer == "OPEN":
