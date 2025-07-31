@@ -61,19 +61,20 @@ class TimerController:
             if self.show_zero:
                 self.show_zero = False
                 self.elapsed = 0
-                # Switch state
                 if self.status == "OPEN":
                     self.status = "CLOSE"
                     if self.mode == "random":
-                        # ONLY assign close_time from buffer, then randomize NEXT close buffer
                         self.close_time = self.next_close_time
                         self.next_close_time = self._random_period("CLOSE")
-                else:
+                    else:
+                        self.close_time = self._close_time_base if self._close_time_base is not None else self.DEFAULT_CLOSE_TIME
+                else:  # was CLOSE, now OPEN
                     self.status = "OPEN"
                     if self.mode == "random":
-                        # ONLY assign open_time from buffer, then randomize NEXT open buffer
                         self.open_time = self.next_open_time
                         self.next_open_time = self._random_period("OPEN")
+                    else:
+                        self.open_time = self._open_time_base if self._open_time_base is not None else self.DEFAULT_OPEN_TIME
                 break
 
             if self.status == "OPEN":
@@ -110,6 +111,11 @@ class TimerController:
             else:
                 logger.error("Timer mode must be 'OPEN' or 'CLOSE'")
                 raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
+            # When adjusting base, also update next buffer for that period
+            if self.status == "OPEN":
+                self.next_open_time = self._random_period("OPEN")
+            elif self.status == "CLOSE":
+                self.next_close_time = self._random_period("CLOSE")
         else:
             prev_open = self.open_time
             prev_close = self.close_time
@@ -182,35 +188,38 @@ class TimerController:
 
     def _random_period(self, period):
         if period == "OPEN":
-            base = self._open_time_base or self.DEFAULT_OPEN_TIME
+            base = self._open_time_base if self._open_time_base is not None else self.DEFAULT_OPEN_TIME
         else:
-            base = self._close_time_base or self.DEFAULT_CLOSE_TIME
-        # Minimum of 1, random uniform between 1 and base*2 (classic: base +/- 100%)
+            base = self._close_time_base if self._close_time_base is not None else self.DEFAULT_CLOSE_TIME
+        # Minimum of 1, random uniform between base * 0.5 and base
         return max(1, int(round(random.uniform(base * 0.5, base))))
 
     def randomize_if_needed(self):
-        """Randomize all values ONCE, only when entering random mode."""
         if self.mode == "random":
             if self._open_time_base is None:
                 self._open_time_base = self.open_time
             if self._close_time_base is None:
                 self._close_time_base = self.close_time
-
             self.open_time = self._random_period("OPEN")
-            self.next_open_time = self._random_period("OPEN")
             self.close_time = self._random_period("CLOSE")
+            self.next_open_time = self._random_period("OPEN")
             self.next_close_time = self._random_period("CLOSE")
-            logger.debug("Randomized all values once when entering random mode.")
         else:
             if self._open_time_base is not None:
                 self.open_time = self._open_time_base
+            if self._close_time_base is not None:
                 self.close_time = self._close_time_base
-                self._open_time_base = None
-                self._close_time_base = None
-                self.next_open_time = None
-                self.next_close_time = None
-                logger.debug("Restored base times.")
+            self._open_time_base = None
+            self._close_time_base = None
+            self.next_open_time = None
+            self.next_close_time = None
         self._log_state_change()
+
+    def randomize_next_open_time(self):
+        self.next_open_time = self._random_period("OPEN")
+
+    def randomize_next_close_time(self):
+        self.next_close_time = self._random_period("CLOSE")
 
     def reset_settings(self):
         if os.path.exists(SETTINGS_FILE):
