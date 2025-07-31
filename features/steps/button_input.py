@@ -28,13 +28,11 @@ def step_press_key_for_seconds(context, key, seconds=2):
         # Call controller logic again to process the release
         context.controller.handle_buttons()
 
-@then("the timer module selected should be OPEN")
-def step_check_timer_mode_open(context):
-    assert context.timer.status == "OPEN", f"Expected mode 'OPEN', but got '{context.timer.status}'"
-
-@then("the timer module selected should be CLOSE")
-def step_check_timer_mode_close(context):
-    assert context.timer.status == "CLOSE", f"Expected mode 'CLOSE', but got '{context.timer.status}'"
+@then('the timer module selected should be {expected_mode}')
+def step_check_timer_mode(context, expected_mode):
+    assert context.controller.selected_timer == expected_mode, (
+        f"Expected selected_timer '{expected_mode}', but got '{context.controller.selected_timer}'"
+    )
 
 @then("the timer should be enabled")
 def step_timer_should_be_enabled(context):
