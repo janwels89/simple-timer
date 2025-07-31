@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 def _get_gpio_module():
     gpio_type = os.getenv("GPIO_DRIVER")
     if gpio_type == "mock":
-        from features.steps.mocks.mock_input import GPIO
+        from features.steps.mocks.mock_gpio import GPIO
         logger.debug("Using MOCK GPIO (forced by GPIO_DRIVER=mock)")
         return GPIO
     elif gpio_type == "real":

@@ -15,8 +15,6 @@ class GPIOClass:
     def __init__(self):
         self._mode = None
         self._pins = {}
-        self._key2_pressed = False
-        self._key2_pin = 20  # BCM pin for KEY2 (update if different for your board)
 
     def setmode(self, mode):
         self._mode = mode
@@ -27,13 +25,10 @@ class GPIOClass:
         logger.debug(f"Mock GPIO: setup(pin={pin}, mode={mode}, pull_up_down={pull_up_down})")
 
     def input(self, pin):
-        # Only KEY2 is pressed once at the start, then released
-        if pin == self._key2_pin and not self._key2_pressed:
-            self._key2_pressed = True
-            logger.debug("Mock GPIO: KEY2 is pressed (LOW) for timer start.")
-            return self.LOW
-        logger.debug(f"Mock GPIO: input(pin={pin}) -> {self._pins.get(pin, {}).get('state', self.HIGH)}")
-        return self.HIGH
+        # Always return the current state (default HIGH if not set up)
+        state = self._pins.get(pin, {}).get('state', self.HIGH)
+        logger.debug(f"Mock GPIO: input(pin={pin}) -> {state}")
+        return state
 
     def output(self, pin, state):
         if pin not in self._pins:
@@ -44,15 +39,18 @@ class GPIOClass:
     def cleanup(self):
         logger.debug("Mock GPIO: cleanup()")
         self._pins.clear()
-        self._key2_pressed = False
 
-    # Test helpers (optional, not used for your main requirement)
+    # Helpers for test/GUI
     def _press(self, pin):
-        if pin in self._pins:
-            self._pins[pin]['state'] = self.LOW
+        if pin not in self._pins:
+            self._pins[pin] = {'mode': self.IN, 'pull': self.PUD_UP, 'state': self.HIGH}
+        self._pins[pin]['state'] = self.LOW
+        logger.debug(f"Mock GPIO: _press(pin={pin}) (state=LOW)")
 
     def _release(self, pin):
-        if pin in self._pins:
-            self._pins[pin]['state'] = self.HIGH
+        if pin not in self._pins:
+            self._pins[pin] = {'mode': self.IN, 'pull': self.PUD_UP, 'state': self.HIGH}
+        self._pins[pin]['state'] = self.HIGH
+        logger.debug(f"Mock GPIO: _release(pin={pin}) (state=HIGH)")
 
 GPIO = GPIOClass()

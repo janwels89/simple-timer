@@ -95,28 +95,90 @@ class SH1106(object):
         return self.buffer[-1] if self.buffer else None
 
 class Thinkerer:
-    """
-    Simple Tkinter-based window to display the latest SH1106 image.
-    Must be started in the main thread!
-    """
+    BUTTON_PINS = {
+        "KEY1": 21,
+        "KEY2": 20,
+        "KEY3": 16,
+        "UP": 19,
+        "DOWN": 6,
+        "LEFT": 5,
+        "RIGHT": 26,
+        "PRESS": 13,
+    }
+
     def __init__(self, width, height):
         self.width = width
         self.height = height
         self.root = tk.Tk()
         self.root.title("SH1106 Mock Display (Thinkerer)")
         self.root.resizable(False, False)
-        self.label = tk.Label(self.root)
+
+        # Main frame with three columns: left buttons, display, right buttons
+        main_frame = tk.Frame(self.root)
+        main_frame.pack(padx=10, pady=10)
+
+        # Left column: KEY3, KEY2, KEY1 (vertical, KEY1 and KEY3 are swapped)
+        left_frame = tk.Frame(main_frame)
+        left_frame.grid(row=0, column=0, sticky="n")
+        for key in ["KEY3", "KEY2", "KEY1"]:
+            btn = tk.Button(left_frame, text=key, width=6)
+            pin = self.BUTTON_PINS[key]
+            btn.bind("<ButtonPress-1>", lambda event, p=pin: self._press(p))
+            btn.bind("<ButtonRelease-1>", lambda event, p=pin: self._release(p))
+            btn.pack(pady=5)
+
+        # Center: Display label
+        display_frame = tk.Frame(main_frame)
+        display_frame.grid(row=0, column=1)
+        self.label = tk.Label(display_frame)
         self.label.pack()
-        # Do NOT start mainloop here! Must be started in the main thread by your launcher.
+
+        # Right column: Joystick (UP, DOWN, LEFT, RIGHT, PRESS)
+        right_frame = tk.Frame(main_frame)
+        right_frame.grid(row=0, column=2, sticky="n")
+
+        # Arrange joystick in a cross layout using only grid
+        js_btns = {}
+        js_btns["UP"] = tk.Button(right_frame, text="UP", width=6)
+        js_btns["LEFT"] = tk.Button(right_frame, text="LEFT", width=6)
+        js_btns["PRESS"] = tk.Button(right_frame, text="PRESS", width=6)
+        js_btns["RIGHT"] = tk.Button(right_frame, text="RIGHT", width=6)
+        js_btns["DOWN"] = tk.Button(right_frame, text="DOWN", width=6)
+        # Bind pins
+        for name in ["UP", "DOWN", "LEFT", "RIGHT", "PRESS"]:
+            pin = self.BUTTON_PINS[name]
+            js_btns[name].bind("<ButtonPress-1>", lambda event, p=pin: self._press(p))
+            js_btns[name].bind("<ButtonRelease-1>", lambda event, p=pin: self._release(p))
+
+        # Grid joystick buttons in cross directly in right_frame
+        js_btns["UP"].grid(row=0, column=1, pady=2)
+        js_btns["LEFT"].grid(row=1, column=0, padx=2)
+        js_btns["PRESS"].grid(row=1, column=1, padx=2)
+        js_btns["RIGHT"].grid(row=1, column=2, padx=2)
+        js_btns["DOWN"].grid(row=2, column=1, pady=2)
+
+    def _press(self, pin):
+        try:
+            from features.steps.mocks.mock_gpio import GPIO
+            GPIO._press(pin)
+        except ImportError:
+            pass
+
+    def _release(self, pin):
+        try:
+            from features.steps.mocks.mock_gpio import GPIO
+            GPIO._release(pin)
+        except ImportError:
+            pass
 
     def update_image(self, pil_image):
         if not pil_image or not ImageTk:
             return
-        img = pil_image.rotate(180)  # Rotates the image display 180 degrees
-        img = img.resize((self.width*3, self.height*3))  # Scale up for visibility
+        img = pil_image.rotate(180)
+        img = img.resize((self.width*3, self.height*3))
         self.tk_img = ImageTk.PhotoImage(img)
         self.label.configure(image=self.tk_img)
-        self.label.image = self.tk_img  # Keep reference
+        self.label.image = self.tk_img
 
     def clear(self):
         self.label.configure(image=None)

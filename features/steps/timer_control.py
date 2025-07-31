@@ -2,7 +2,7 @@ from behave import given, when, then
 from app.timer import TimerController
 from app.display import Display
 from features.steps.mocks.mock_sh1106 import SH1106
-from features.steps.mocks.mock_input import ButtonInput
+from features.steps.mocks.mock_gpio import ButtonInput
 from PIL import Image, ImageDraw, ImageFont
 
 
