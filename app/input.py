@@ -1,7 +1,32 @@
+import os
+import platform
 import logging
-import RPi.GPIO as GPIO
 
 logger = logging.getLogger(__name__)
+
+def _get_gpio_module():
+    gpio_type = os.getenv("GPIO_DRIVER")
+    if gpio_type == "mock":
+        from features.steps.mocks.mock_input import GPIO
+        logger.debug("Using MOCK GPIO (forced by GPIO_DRIVER=mock)")
+        return GPIO
+    elif gpio_type == "real":
+        import RPi.GPIO as GPIO
+        logger.debug("Using REAL GPIO (forced by GPIO_DRIVER=real)")
+        return GPIO
+    else:
+        arch = platform.machine().lower()
+        if any(arm in arch for arm in ("arm", "aarch64")):
+            import RPi.GPIO as GPIO
+            logger.debug("Using REAL GPIO (platform is ARM)")
+            return GPIO
+        else:
+            from features.steps.mocks.mock_gpio import GPIO
+            logger.debug("Using MOCK GPIO (platform is NOT ARM)")
+            return GPIO
+
+GPIO = _get_gpio_module()
+
 
 class ButtonInput:
     """

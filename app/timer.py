@@ -3,6 +3,7 @@ import os
 import json
 import logging
 
+
 SETTINGS_FILE = "settings.json"
 
 logger = logging.getLogger(__name__)
