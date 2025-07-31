@@ -1,6 +1,13 @@
+import logging
 import time
+from app.utils import is_debug, run_with_thinkerer
 from app.input import ButtonInput, JoystickInput
-from app.utils import run_with_thinkerer
+
+if is_debug():
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+
 
 def test_logic(sh1106):
     from app.display import Display
