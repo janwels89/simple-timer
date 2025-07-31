@@ -27,9 +27,13 @@ def test_init_defaults(tmp_settings_file):
 
 def test_save_and_load_settings(tmp_settings_file):
     t = TimerController()
+    t.open_time_base = 12
+    t.close_time_base = 21
     t.open_time = 12
     t.close_time = 21
     t.save_settings()
+    t.open_time_base = 1
+    t.close_time_base = 2
     t.open_time = 1
     t.close_time = 2
     t.load_settings()
@@ -70,17 +74,20 @@ def test_reset_settings(tmp_settings_file):
 
 def test_adjust_time_and_no_negatives(tmp_settings_file):
     t = TimerController()
+    t.open_time_base = 2
     t.open_time = 2
     t.status = "OPEN"
     t.adjust_time(-5)
     assert t.open_time == 0  # Should not be negative
     t.status = "CLOSE"
+    t.close_time_base = 2
     t.close_time = 2
     t.adjust_time(-5)
     assert t.close_time == 0  # Should not be negative
 
 def test_increase_and_decrease_time(tmp_settings_file):
     t = TimerController()
+    t.open_time_base = 2
     t.open_time = 2
     t.status = "OPEN"
     t.increase_time()

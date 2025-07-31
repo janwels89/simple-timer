@@ -127,6 +127,10 @@ class AppController:
             elif self.selected_timer == "CLOSE":
                 self.timer.close_time = max(0, self.timer.close_time - 1)
                 logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+            elif self.selected_timer is None:
+                # Toggle random mode when no timer is selected
+                self.timer.toggle_random_mode()
+                logging.info("Toggled to %s mode", self.timer.mode)
             time.sleep(0.2)  # Debounce
 
     def log_timer_state_changes(self):

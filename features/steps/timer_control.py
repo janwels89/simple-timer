@@ -21,8 +21,10 @@ def step_timer_selected(context):
 @given("the selected timer is currently set to {value:d} seconds")
 def step_set_timer_value(context, value):
     if context.timer.status == "OPEN":
+        context.timer.open_time_base = value
         context.timer.open_time = value
     elif context.timer.status == "CLOSE":
+        context.timer.close_time_base = value
         context.timer.close_time = value
     else:
         raise ValueError("Timer mode must be set to 'OPEN' or 'CLOSE' before setting time.")

@@ -4,11 +4,13 @@ from app.timer import TimerController
 
 @given("the OPEN time is set to {seconds:d} seconds")
 def step_set_open_time(context, seconds):
+    context.timer.open_time_base = seconds
     context.timer.open_time = seconds
     context.timer.save_settings()
 
 @given("the CLOSE time is set to {seconds:d} seconds")
 def step_set_close_time(context, seconds):
+    context.timer.close_time_base = seconds
     context.timer.close_time = seconds
     context.timer.save_settings()
 
