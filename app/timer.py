@@ -171,20 +171,25 @@ class TimerController:
             self._log_state_change()
 
     def randomize_if_needed(self):
-        """Randomize timer values if in random mode, otherwise use base values."""
         if self.mode == "random":
-            # If entering random mode for the first time, save current values as base
             if self._open_time_base is None:
                 self._open_time_base = self.open_time
                 self._close_time_base = self.close_time
-                
+
+            if self.status == "OPEN":
+                # Only randomize open_time for the next OPEN period
+                self.open_time = int(round(self._open_time_base * random.random()))
+            elif self.status == "CLOSE":
+                # Only randomize close_time for the next CLOSE period
+                self.close_time = int(round(self._close_time_base * random.random()))
+
             # Generate random multipliers between 0 and 1
             open_multiplier = random.random()
             close_multiplier = random.random()
-            
-            # Apply randomization to base values
-            self.open_time = self._open_time_base * open_multiplier
-            self.close_time = self._close_time_base * close_multiplier
+
+            # Apply randomization to base values and ensure integer result
+            self.open_time = int(round(self._open_time_base * open_multiplier))
+            self.close_time = int(round(self._close_time_base * close_multiplier))
             
             logger.debug(f"Randomized times: open={self.open_time:.3f} (base={self._open_time_base}), close={self.close_time:.3f} (base={self._close_time_base})")
         else:
