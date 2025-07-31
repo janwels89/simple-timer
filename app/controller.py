@@ -70,6 +70,7 @@ class AppController:
                         self.timer.elapsed = 0
                         self.timer.show_zero = False
                         self.timer.status = "OPEN"
+                        self.timer.reset_settings()
                         logger.info("Timer stopped and reset (long press).")
                     else:
                         # Short press: pause/resume ONLY
@@ -103,30 +104,44 @@ class AppController:
         # Joystick up/down: adjust selected timer value
         if self.selected_timer:
             if self.joystick.is_active('up'):
+                self.timer.increase_time()
                 if self.selected_timer == "OPEN":
-                    self.timer.open_time += 1
-                    logging.info("Increased OPEN time to %d", self.timer.open_time)
+                    current_display = self.timer._open_time_base if self.timer.mode == "random" and self.timer._open_time_base is not None else self.timer.open_time
+                    logging.info("Increased OPEN time to %d", current_display)
                 elif self.selected_timer == "CLOSE":
-                    self.timer.close_time += 1
-                    logging.info("Increased CLOSE time to %d", self.timer.close_time)
+                    current_display = self.timer._close_time_base if self.timer.mode == "random" and self.timer._close_time_base is not None else self.timer.close_time
+                    logging.info("Increased CLOSE time to %d", current_display)
                 time.sleep(0.2)  # Debounce
 
             if self.joystick.is_active('down'):
+                self.timer.decrease_time()
                 if self.selected_timer == "OPEN":
-                    self.timer.open_time = max(0, self.timer.open_time - 1)
-                    logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                    current_display = self.timer._open_time_base if self.timer.mode == "random" and self.timer._open_time_base is not None else self.timer.open_time
+                    logging.info("Decreased OPEN time to %d", current_display)
                 elif self.selected_timer == "CLOSE":
-                    self.timer.close_time = max(0, self.timer.close_time - 1)
-                    logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                    current_display = self.timer._close_time_base if self.timer.mode == "random" and self.timer._close_time_base is not None else self.timer.close_time
+                    logging.info("Decreased CLOSE time to %d", current_display)
                 time.sleep(0.2)  # Debounce
 
         if self.joystick.is_active('right'):
             if self.selected_timer == "OPEN":
-                self.timer.open_time = max(0, self.timer.open_time - 1)
-                logging.info("Decreased OPEN time to %d", self.timer.open_time)
+                self.timer.decrease_time()
+                current_display = self.timer._open_time_base if self.timer.mode == "random" and self.timer._open_time_base is not None else self.timer.open_time
+                logging.info("Decreased OPEN time to %d", current_display)
             elif self.selected_timer == "CLOSE":
-                self.timer.close_time = max(0, self.timer.close_time - 1)
-                logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                self.timer.decrease_time()
+                current_display = self.timer._close_time_base if self.timer.mode == "random" and self.timer._close_time_base is not None else self.timer.close_time
+                logging.info("Decreased CLOSE time to %d", current_display)
+            else:
+                # No timer selected - toggle random mode
+                if self.timer.mode == "loop":
+                    self.timer.mode = "random"
+                    self.timer.randomize_if_needed()
+                    logging.info("Switched to random mode")
+                else:
+                    self.timer.mode = "loop"
+                    self.timer.randomize_if_needed()  # This will restore base values
+                    logging.info("Switched to loop mode")
             time.sleep(0.2)  # Debounce
 
     def log_timer_state_changes(self):

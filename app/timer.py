@@ -2,6 +2,7 @@ import time
 import os
 import json
 import logging
+import random
 
 
 SETTINGS_FILE = "settings.json"
@@ -22,6 +23,9 @@ class TimerController:
         self.last_update_time = time.monotonic()
         self.show_zero = False
         self._last_state = {}
+        # Base values for random mode (will be set when entering random mode)
+        self._open_time_base = None
+        self._close_time_base = None
         self.load_settings()
         logger.debug(f"TimerController initialized: open={self.open_time}, close={self.close_time}, status={self.status}, mode={self.mode}")
 
@@ -63,6 +67,18 @@ class TimerController:
                 self.show_zero = False
                 self.elapsed = 0
                 self.status = "CLOSE" if self.status == "OPEN" else "OPEN"
+                # Reload base values and re-randomize on period transition
+                if self.mode == "random":
+                    self.load_settings()  # Reload base values from settings
+                    # Set the loaded values as base values
+                    if self._open_time_base is None:
+                        self._open_time_base = self.open_time
+                        self._close_time_base = self.close_time
+                    else:
+                        # Update base values from settings
+                        self._open_time_base = self.open_time
+                        self._close_time_base = self.close_time
+                    self.randomize_if_needed()  # Apply new randomization
                 break
 
             if self.status == "OPEN":
@@ -86,17 +102,36 @@ class TimerController:
         self._log_state_change()
 
     def adjust_time(self, delta):
-        prev_open = self.open_time
-        prev_close = self.close_time
-        if self.status == "OPEN":
-            self.open_time = max(0, self.open_time + delta)
-        elif self.status == "CLOSE":
-            self.close_time = max(0, self.close_time + delta)
+        if self.mode == "random":
+            # In random mode, adjust base values
+            if self._open_time_base is None:
+                self._open_time_base = self.open_time
+                self._close_time_base = self.close_time
+            
+            prev_open = self._open_time_base
+            prev_close = self._close_time_base
+            if self.status == "OPEN":
+                self._open_time_base = max(0, self._open_time_base + delta)
+            elif self.status == "CLOSE":
+                self._close_time_base = max(0, self._close_time_base + delta)
+            else:
+                logger.error("Timer mode must be 'OPEN' or 'CLOSE'")
+                raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
         else:
-            logger.error("Timer mode must be 'OPEN' or 'CLOSE'")
-            raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
+            # In loop mode, adjust current values directly
+            prev_open = self.open_time
+            prev_close = self.close_time
+            if self.status == "OPEN":
+                self.open_time = max(0, self.open_time + delta)
+            elif self.status == "CLOSE":
+                self.close_time = max(0, self.close_time + delta)
+            else:
+                logger.error("Timer mode must be 'OPEN' or 'CLOSE'")
+                raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
+        
         self.save_settings()
-        if prev_open != self.open_time or prev_close != self.close_time:
+        if (self.mode == "random" and (prev_open != self._open_time_base or prev_close != self._close_time_base)) or \
+           (self.mode != "random" and (prev_open != self.open_time or prev_close != self.close_time)):
             self._log_state_change()
 
     def increase_time(self):
@@ -106,7 +141,11 @@ class TimerController:
         self.adjust_time(-1)
 
     def save_settings(self):
-        data = {"open_time": self.open_time, "close_time": self.close_time}
+        # Save the base values if in random mode, otherwise save current values
+        if self.mode == "random" and self._open_time_base is not None:
+            data = {"open_time": self._open_time_base, "close_time": self._close_time_base}
+        else:
+            data = {"open_time": self.open_time, "close_time": self.close_time}
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f)
         # Only log settings save if they actually changed (covered by state change)
@@ -131,11 +170,42 @@ class TimerController:
         if loaded:
             self._log_state_change()
 
+    def randomize_if_needed(self):
+        """Randomize timer values if in random mode, otherwise use base values."""
+        if self.mode == "random":
+            # If entering random mode for the first time, save current values as base
+            if self._open_time_base is None:
+                self._open_time_base = self.open_time
+                self._close_time_base = self.close_time
+                
+            # Generate random multipliers between 0 and 1
+            open_multiplier = random.random()
+            close_multiplier = random.random()
+            
+            # Apply randomization to base values
+            self.open_time = self._open_time_base * open_multiplier
+            self.close_time = self._close_time_base * close_multiplier
+            
+            logger.debug(f"Randomized times: open={self.open_time:.3f} (base={self._open_time_base}), close={self.close_time:.3f} (base={self._close_time_base})")
+        else:
+            # Use base values directly if available, otherwise current values
+            if self._open_time_base is not None:
+                self.open_time = self._open_time_base
+                self.close_time = self._close_time_base
+                # Clear base values when exiting random mode
+                self._open_time_base = None
+                self._close_time_base = None
+                logger.debug(f"Restored base times: open={self.open_time}, close={self.close_time}")
+        
+        self._log_state_change()
+
     def reset_settings(self):
         if os.path.exists(SETTINGS_FILE):
             os.remove(SETTINGS_FILE)
         self.open_time = self.DEFAULT_OPEN_TIME
         self.close_time = self.DEFAULT_CLOSE_TIME
+        self._open_time_base = None
+        self._close_time_base = None
         self.save_settings()
         logger.info("Timer settings reset to defaults.")
         self._log_state_change()
