@@ -128,7 +128,7 @@ class Display:
             base_w = base_bbox[2] - base_bbox[0]
             base_x = next_x
             base_y = num_y + (number_h - base_bbox[3] + base_bbox[1]) // 2
-            self.draw.text((base_x, base_y), base_str, font=small_font, fill=128)
+            self.draw.text((base_x, base_y), base_str, font=small_font, fill=fill)
             next_x = base_x + base_w + 8  # space after base value
 
         # Optionally display next_time for debug/demo
@@ -136,7 +136,7 @@ class Display:
             next_str = f"→{next_val}"
             next_bbox = small_font.getbbox(next_str)
             next_y = num_y + (number_h - next_bbox[3] + next_bbox[1]) // 2
-            self.draw.text((next_x, next_y), next_str, font=small_font, fill=64)
+            self.draw.text((next_x, next_y), next_str, font=small_font, fill=fill)
 
     def _draw_statuses(self):
         font = self.font_status
