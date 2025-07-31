@@ -141,8 +141,18 @@ class AppController:
                     self.timer.mode = "loop"
                     self.timer.randomize_if_needed()  # This will restore base values
                     logging.info("Switched to loop mode")
+                # Always update status_c to reflect the new mode
+                self.timer.status_c = self.timer.mode
+                # Redraw the display with updated status_c
+                self.display.draw_layout(
+                    self.timer.open_time,
+                    self.timer.close_time,
+                    self.timer.status_a,
+                    self.timer.status_b,
+                    self.timer.status_c
+                )
+                self.display.ShowImage(self.display.getbuffer(self.display.image))
             time.sleep(0.2)  # Debounce
-
     def log_timer_state_changes(self):
         # Only log when something actually changes
         if self.timer.enabled != self._last_timer_enabled:
