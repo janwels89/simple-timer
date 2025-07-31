@@ -27,7 +27,6 @@ class GPIOClass:
     def input(self, pin):
         # Always return the current state (default HIGH if not set up)
         state = self._pins.get(pin, {}).get('state', self.HIGH)
-        logger.debug(f"Mock GPIO: input(pin={pin}) -> {state}")
         return state
 
     def output(self, pin, state):
