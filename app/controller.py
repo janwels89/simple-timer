@@ -7,13 +7,9 @@ from app.input import ButtonInput, JoystickInput
 logger = logging.getLogger(__name__)
 
 class AppController:
-    def __init__(self, debug=False):
-        if debug:
-            logging.basicConfig(level=logging.DEBUG)
-        else:
-            logging.basicConfig(level=logging.INFO)
-
-        self.display = Display()
+    def __init__(self, debug: bool = False, display_hardware=None):
+        self.debug = debug
+        self.display = Display(hardware=display_hardware) if display_hardware else Display()
         self.timer = TimerController()
         self.buttons = ButtonInput()
         self.joystick = JoystickInput()
@@ -33,29 +29,54 @@ class AppController:
         self._clock_index = 0
         self._last_anim_time = time.monotonic()
 
-        # Display initialization
-        self.display.hw.Init()
-        self.display.hw.clear()
-        time.sleep(0.2)
-        from PIL import ImageDraw
-        draw = ImageDraw.Draw(self.display.image)
-        draw.rectangle((10, 10, self.display.width - 10, self.display.height - 10), outline=0, fill=0)
-        self.display.ShowImage(self.display.getbuffer(self.display.image))
-        time.sleep(1)
-        self.display.hw.clear()
-
-        if hasattr(self.display, "_is_mock") and self.display._is_mock():
-            logger.info("Mock display driver is in use! Set DISPLAY_DRIVER=real or run on ARM hardware for hardware output.")
+        self._init_display()
+        self._check_mock_display()
 
         self.timer.status_a = ""
         self.timer.status_b = ""
         self.timer.status_c = self.timer.mode
 
-        self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c)
+        self._draw_layout()
+
+    def _init_display(self):
+        self.display.hw.Init()
+        self.display.hw.clear()
+        time.sleep(0.2)
+        from PIL import ImageDraw
+        draw = ImageDraw.Draw(self.display.image)
+        draw.rectangle(
+            (10, 10, self.display.width - 10, self.display.height - 10),
+            outline=0, fill=0
+        )
+        self.display.ShowImage(self.display.getbuffer(self.display.image))
+        time.sleep(1)
+        self.display.hw.clear()
+
+    def _check_mock_display(self):
+        if hasattr(self.display, "_is_mock") and self.display._is_mock():
+            logger.info("Mock display driver is in use! Set DISPLAY_DRIVER=real or run on ARM hardware for hardware output.")
+
+    def _draw_layout(self):
+        self.display.draw_layout(
+            self.timer.open_time,
+            self.timer.close_time,
+            self.timer.status_a,
+            self.timer.status_b,
+            self.timer.status_c,
+            open_base=self.timer._open_time_base,
+            close_base=self.timer._close_time_base
+        )
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
     def handle_buttons(self):
-        # KEY2: Pause/Resume (short press), Reset (long press)
+        self._handle_key2_press()
+        self._handle_key3_press()
+        self._handle_key1_press()
+        self._handle_selection_exit()
+        self._handle_joystick_adjust()
+        self._handle_joystick_right()
+
+    def _handle_key2_press(self):
         if self.buttons.is_pressed('KEY2'):
             if not self.key2_was_pressed:
                 self.key2_press_time = time.monotonic()
@@ -64,114 +85,150 @@ class AppController:
             if self.key2_was_pressed:
                 if self.key2_press_time is not None:
                     duration = time.monotonic() - self.key2_press_time
-                    if duration >= 2.0:
-                        # Long press: reset
-                        self.timer.enabled = False
-                        self.timer.elapsed = 0
-                        self.timer.show_zero = False
-                        self.timer.status = "OPEN"
-                        logger.info("Timer stopped and reset (long press).")
+                    if duration >= 5.0:
+                        self._full_reset()
+                        logger.info("Timer stopped and FULLY reset (key2 held ≥5s).")
+                    elif duration >= 2.0:
+                        self._reset_and_reload()
+                        logger.info("Timer stopped and reloaded from settings (key2 held ≥2s).")
                     else:
-                        # Short press: pause/resume ONLY
-                        if not self.timer.enabled:
-                            self.timer.enabled = True
-                            self.timer.last_update_time = time.monotonic()
-                            logging.info("Timer resumed (short press).")
-                        else:
-                            self.timer.enabled = False
-                            logging.info("Timer paused (short press).")
+                        self._toggle_pause_resume()
                 self.key2_press_time = None
                 self.key2_was_pressed = False
 
-        # KEY3: select OPEN timer for editing
+    def _toggle_pause_resume(self):
+        if not self.timer.enabled:
+            self.timer.enabled = True
+            self.timer.last_update_time = time.monotonic()
+            logger.info("Timer resumed (short press).")
+        else:
+            self.timer.enabled = False
+            logger.info("Timer paused (short press).")
+
+    def _reset_and_reload(self):
+        self.timer.enabled = False
+        self.timer.elapsed = 0
+        self.timer.show_zero = False
+        self.timer.status = "OPEN"
+        self.timer.load_settings()
+
+    def _full_reset(self):
+        self.timer.enabled = False
+        self.timer.elapsed = 0
+        self.timer.show_zero = False
+        self.timer.status = "OPEN"
+        self.timer.reset_settings()
+
+    def _handle_key3_press(self):
         if self.buttons.is_pressed('KEY3'):
             if self.selected_timer != "OPEN":
                 self.selected_timer = "OPEN"
-                logging.info("Selected OPEN timer for editing.")
+                logger.info("Selected OPEN timer for editing.")
 
-        # KEY1: select CLOSE timer for editing
+    def _handle_key1_press(self):
         if self.buttons.is_pressed('KEY1'):
             if self.selected_timer != "CLOSE":
                 self.selected_timer = "CLOSE"
-                logging.info("Selected CLOSE timer for editing.")
+                logger.info("Selected CLOSE timer for editing.")
 
-        # KEY2: exit selection mode if in selection
+    def _handle_selection_exit(self):
         if self.selected_timer and self.buttons.is_pressed('KEY2'):
-            logging.info(f"Exited selection mode for {self.selected_timer}.")
+            logger.info(f"Exited selection mode for {self.selected_timer}.")
             self.selected_timer = None
 
-        # Joystick up/down: adjust selected timer value
+    def _handle_joystick_adjust(self):
         if self.selected_timer:
+            direction = 0
             if self.joystick.is_active('up'):
+                direction = 1
+            elif self.joystick.is_active('down'):
+                direction = -1
+
+            if direction != 0:
                 if self.selected_timer == "OPEN":
-                    self.timer.open_time += 1
-                    logging.info("Increased OPEN time to %d", self.timer.open_time)
+                    self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
+                    self.timer.randomize_if_needed()
+                    logger.info(
+                        "%s OPEN base time to %d",
+                        "Increased" if direction > 0 else "Decreased",
+                        self.timer._open_time_base
+                    )
                 elif self.selected_timer == "CLOSE":
-                    self.timer.close_time += 1
-                    logging.info("Increased CLOSE time to %d", self.timer.close_time)
+                    self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
+                    self.timer.randomize_if_needed()
+                    logger.info(
+                        "%s CLOSE base time to %d",
+                        "Increased" if direction > 0 else "Decreased",
+                        self.timer._close_time_base
+                    )
+                self.timer.save_settings()
                 time.sleep(0.2)  # Debounce
 
-            if self.joystick.is_active('down'):
-                if self.selected_timer == "OPEN":
-                    self.timer.open_time = max(0, self.timer.open_time - 1)
-                    logging.info("Decreased OPEN time to %d", self.timer.open_time)
-                elif self.selected_timer == "CLOSE":
-                    self.timer.close_time = max(0, self.timer.close_time - 1)
-                    logging.info("Decreased CLOSE time to %d", self.timer.close_time)
-                time.sleep(0.2)  # Debounce
-
+    def _handle_joystick_right(self):
         if self.joystick.is_active('right'):
             if self.selected_timer == "OPEN":
-                self.timer.open_time = max(0, self.timer.open_time - 1)
-                logging.info("Decreased OPEN time to %d", self.timer.open_time)
-            elif self.selected_timer == "CLOSE":
-                self.timer.close_time = max(0, self.timer.close_time - 1)
-                logging.info("Decreased CLOSE time to %d", self.timer.close_time)
+                # Reserved for future use or additional feature
+                pass
+            else:
+                # No timer selected - toggle random/loop mode
+                self._toggle_timer_mode()
+                self.timer.status_c = self.timer.mode
+                self._draw_layout()
             time.sleep(0.2)  # Debounce
 
+    def _toggle_timer_mode(self):
+        if self.timer.mode == "loop":
+            self.timer.set_mode("random")
+            logger.info("Switched to random mode")
+        else:
+            self.timer.set_mode("loop")
+            logger.info("Switched to loop mode")
+
     def log_timer_state_changes(self):
-        # Only log when something actually changes
-        if self.timer.enabled != self._last_timer_enabled:
-            logger.debug(f"Timer enabled changed: {self._last_timer_enabled} -> {self.timer.enabled}")
-            self._last_timer_enabled = self.timer.enabled
-
-        if self.timer.status != self._last_timer_status:
-            logger.debug(f"Timer status changed: {self._last_timer_status} -> {self.timer.status}")
-            self._last_timer_status = self.timer.status
-
-        if self.timer.mode != self._last_timer_mode:
-            logger.debug(f"Timer mode changed: {self._last_timer_mode} -> {self.timer.mode}")
-            self._last_timer_mode = self.timer.mode
-
-        if self.timer.elapsed != self._last_timer_elapsed:
-            if int(self.timer.elapsed) != int(self._last_timer_elapsed):
-                logger.debug(f"Timer elapsed changed: {int(self._last_timer_elapsed)} -> {int(self.timer.elapsed)}")
+        self._log_state_change('enabled', self.timer.enabled, '_last_timer_enabled')
+        self._log_state_change('status', self.timer.status, '_last_timer_status')
+        self._log_state_change('mode', self.timer.mode, '_last_timer_mode')
+        # Only log elapsed if integer value changes
+        if int(self.timer.elapsed) != int(self._last_timer_elapsed):
+            logger.debug(f"Timer elapsed changed: {int(self._last_timer_elapsed)} -> {int(self.timer.elapsed)}")
             self._last_timer_elapsed = self.timer.elapsed
+
+    def _log_state_change(self, name, current_value, last_attr):
+        last_value = getattr(self, last_attr)
+        if current_value != last_value:
+            logger.debug(f"Timer {name} changed: {last_value} -> {current_value}")
+            setattr(self, last_attr, current_value)
 
     def run(self):
         try:
             while self.running:
                 self.handle_buttons()
-                if self.timer.enabled:
-                    self.timer.update()
-                    # Animate classic spinner for status_a
-                    now = time.monotonic()
-                    if now - self._last_anim_time > 0.2:
-                        self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
-                        self._last_anim_time = now
-                    self.timer.status_a = self._clock_symbols[self._clock_index]
-                else:
-                    self.timer.status_a = ""
-                self.display.update_values(self.timer)
-                self.display.ShowImage(self.display.getbuffer(self.display.image))
+                self._update_timer_and_display()
                 self.log_timer_state_changes()
                 time.sleep(0.1)
         finally:
-            self.buttons.cleanup()
-            self.joystick.cleanup()
-            if hasattr(self.display, "hw") and hasattr(self.display.hw, "RPI"):
-                try:
-                    self.display.hw.RPI.module_exit()
-                    logger.info("GPIO cleanup done.")
-                except Exception as e:
-                    logger.error("GPIO cleanup failed: %s", e)
+            self._cleanup()
+
+    def _update_timer_and_display(self):
+        if self.timer.enabled:
+            self.timer.update()
+            # Animate spinner for status_a
+            now = time.monotonic()
+            if now - self._last_anim_time > 0.2:
+                self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
+                self._last_anim_time = now
+            self.timer.status_a = self._clock_symbols[self._clock_index]
+        else:
+            self.timer.status_a = ""
+        self.display.update_values(self.timer)
+        self.display.ShowImage(self.display.getbuffer(self.display.image))
+
+    def _cleanup(self):
+        self.buttons.cleanup()
+        self.joystick.cleanup()
+        if hasattr(self.display, "hw") and hasattr(self.display.hw, "RPI"):
+            try:
+                self.display.hw.RPI.module_exit()
+                logger.info("GPIO cleanup done.")
+            except Exception as e:
+                logger.error("GPIO cleanup failed: %s", e)

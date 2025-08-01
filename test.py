@@ -1,79 +1,78 @@
+import logging
 import time
+from app.utils import is_debug, run_with_thinkerer
 from app.input import ButtonInput, JoystickInput
 
-# Import and initialize Display
-try:
+if is_debug():
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+
+
+def test_logic(sh1106):
     from app.display import Display
-    from PIL import Image, ImageDraw
-    display = Display()
+    from PIL import Image, ImageDraw, ImageFont
+
+    display = Display(hardware=sh1106)
     display.hw.Init()
     display.hw.clear()
-    # Boot message on display and console
-    boot_msg = "Press buttons (KEY1/2/3/...) or joystick (up/down/left/right/press). Ctrl+C to exit."
+
+    # Use a basic monospaced font (Thinkerer works best with this)
+    try:
+        font = ImageFont.load_default()
+    except Exception:
+        font = None  # fallback
+
+    boot_msg = "Press buttons"
     print(boot_msg)
-    # Draw the message on display, centered
-    img = Image.new('1', (display.width, display.height), 1)
-    draw = ImageDraw.Draw(img)
-    draw.text((2, display.height // 2 - 8), boot_msg, fill=0)
-    display.ShowImage(display.getbuffer(img))
-except Exception as e:
-    print("Display test skipped or failed:", e)
-    display = None
 
-# Initialize inputs
-buttons = ButtonInput()
-joystick = JoystickInput()
+    def draw_message(msg):
+        img = Image.new('1', (display.width, display.height), 255)  # 255=white background for mode '1'
+        draw = ImageDraw.Draw(img)
+        # Draw black rectangle as border for visibility
+        draw.rectangle((0, 0, display.width - 1, display.height - 1), outline=0, fill=255)
+        # Draw text in black (0)
+        draw.text((2, display.height // 2 - 8), msg, font=font, fill=0)
+        display.ShowImage(display.getbuffer(img))
 
-def show_message_on_display(message, duration=1.0):
-    """Show a message on the display for a short time, then restore boot prompt."""
-    if display:
-        try:
-            # Show the message
-            img = Image.new('1', (display.width, display.height), 1)
-            draw = ImageDraw.Draw(img)
-            draw.text((2, display.height // 2 - 8), message, fill=0)
-            display.ShowImage(display.getbuffer(img))
-            time.sleep(duration)
-            # Restore boot message
-            boot_msg = "Press buttons (KEY1/2/3/...) or joystick (up/down/left/right/press)"
-            img2 = Image.new('1', (display.width, display.height), 1)
-            draw2 = ImageDraw.Draw(img2)
-            draw2.text((2, display.height // 2 - 8), boot_msg, fill=0)
-            display.ShowImage(display.getbuffer(img2))
-        except Exception as e:
-            print("Display show error:", e)
+    draw_message(boot_msg)
 
-print("Press buttons (KEY1/2/3/...) or joystick (up/down/left/right/press). Ctrl+C to exit.")
+    buttons = ButtonInput()
+    joystick = JoystickInput()
 
-try:
-    last_pressed = set()
-    last_dirs = set()
-    while True:
-        # BUTTONS
-        pressed = set(buttons.pressed_buttons())
-        new_presses = pressed - last_pressed
-        for button in new_presses:
-            msg = f"{button} pressed!"
-            print(msg)
-            show_message_on_display(msg, duration=1.0)
+    def show_message_on_display(message, duration=1.0):
+        draw_message(message)
+        time.sleep(duration)
+        draw_message(boot_msg)
 
-        # JOYSTICK
-        directions = set(joystick.active_directions())
-        new_dirs = directions - last_dirs
-        for d in new_dirs:
-            msg = f"Joystick {d}!"
-            print(msg)
-            show_message_on_display(msg, duration=1.0)
+    try:
+        last_pressed = set()
+        last_dirs = set()
+        while True:
+            pressed = set(buttons.pressed_buttons())
+            new_presses = pressed - last_pressed
+            for button in new_presses:
+                msg = f"{button} pressed!"
+                print(msg)
+                show_message_on_display(msg, duration=1.0)
+            directions = set(joystick.active_directions())
+            new_dirs = directions - last_dirs
+            for d in new_dirs:
+                msg = f"Joystick {d}!"
+                print(msg)
+                show_message_on_display(msg, duration=1.0)
+            last_pressed = pressed
+            last_dirs = directions
+            time.sleep(0.1)
+    finally:
+        buttons.cleanup()
+        joystick.cleanup()
+        if display is not None:
+            try:
+                display.hw.clear()
+            except Exception:
+                pass
+        print("Cleaned up.")
 
-        last_pressed = pressed
-        last_dirs = directions
-        time.sleep(0.1)
-finally:
-    buttons.cleanup()
-    joystick.cleanup()
-    if display is not None:
-        try:
-            display.hw.clear()
-        except Exception:
-            pass
-    print("Cleaned up.")
+if __name__ == "__main__":
+    run_with_thinkerer(test_logic, app_name="Test")

@@ -2,8 +2,6 @@ from behave import given, when, then
 from PIL import Image, ImageDraw, ImageFont
 from app.controller import AppController
 
-
-
 @given("the device is powered on")
 def step_powered_on(context):
     context.controller = AppController()
@@ -12,21 +10,21 @@ def step_powered_on(context):
     context.buttons = context.controller.buttons
     context.timer.status = "OPEN"
 
-
 @given("a timer (OPEN or CLOSE) is selected")
 def step_timer_selected(context):
     context.timer.status = "OPEN"
-
 
 @given("the selected timer is currently set to {value:d} seconds")
 def step_set_timer_value(context, value):
     if context.timer.status == "OPEN":
         context.timer.open_time = value
+        context.timer._open_time_base = value
     elif context.timer.status == "CLOSE":
         context.timer.close_time = value
+        context.timer._close_time_base = value
     else:
         raise ValueError("Timer mode must be set to 'OPEN' or 'CLOSE' before setting time.")
-
+    context.timer.save_settings()
 @when("the user moves the joystick {direction}")
 def step_move_joystick(context, direction):
     if context.timer.status == "OPEN":
@@ -37,12 +35,11 @@ def step_move_joystick(context, direction):
         raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
 
     if direction == "up":
-        context.timer.increase_time()
+        context.timer.adjust_time(1)
     elif direction == "down":
-        context.timer.decrease_time()
+        context.timer.adjust_time(-1)
     elif direction == "right":
         context.timer.mode = "random"
-
     else:
         raise ValueError(f"Unknown joystick direction: {direction}")
 
@@ -77,7 +74,6 @@ def step_check_timer_changed(context, change):
         raise ValueError("Timer mode must be 'OPEN' or 'CLOSE'")
 
     assert actual == expected, f"Expected timer value {expected}, but got {actual}"
-
 
 @then('the display should show the updated timer value')
 def step_impl(context):

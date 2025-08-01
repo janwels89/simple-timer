@@ -21,12 +21,16 @@ def step_timer_mode_should_be(context, expected_mode):
 @then('the OPEN time should remain {expected:d} seconds')
 def step_open_time_should_remain(context, expected):
     # Check for a base value if present, else fall back to open_time
-    open_base = getattr(context.timer, "open_time_base", context.timer.open_time)
+    open_base = getattr(context.timer, "_open_time_base", context.timer.open_time)
+    if open_base is None:
+        open_base = context.timer.open_time
     assert math.isclose(open_base, expected, abs_tol=0.1), f"Expected OPEN base time {expected}, got {open_base}"
 
 @then('the CLOSE time should remain {expected:d} seconds')
 def step_close_time_should_remain(context, expected):
-    close_base = getattr(context.timer, "close_time_base", context.timer.close_time)
+    close_base = getattr(context.timer, "_close_time_base", context.timer.close_time)
+    if close_base is None:
+        close_base = context.timer.close_time
     assert math.isclose(close_base, expected, abs_tol=0.1), f"Expected CLOSE base time {expected}, got {close_base}"
 
 @when('the timer starts a new period')
@@ -43,18 +47,26 @@ def step_period_time_between_zero_and_base(context):
     # Check both open and close, one of them should be active
     if context.timer.status == "OPEN":
         period = context.timer.open_time
-        base = getattr(context.timer, "open_time_base", period)
+        base = getattr(context.timer, "_open_time_base", period)
+        if base is None:
+            base = period
     elif context.timer.status == "CLOSE":
         period = context.timer.close_time
-        base = getattr(context.timer, "close_time_base", period)
+        base = getattr(context.timer, "_close_time_base", period)
+        if base is None:
+            base = period
     else:
         assert False, f"Unknown timer status {context.timer.status}"
     assert 0 <= period <= base, f"Period time {period} not between 0 and {base}"
 
 @then('the base OPEN and CLOSE times should not change')
 def step_base_open_close_should_not_change(context):
-    open_base = getattr(context.timer, "open_time_base", context.timer.open_time)
-    close_base = getattr(context.timer, "close_time_base", context.timer.close_time)
+    open_base = getattr(context.timer, "_open_time_base", context.timer.open_time)
+    close_base = getattr(context.timer, "_close_time_base", context.timer.close_time)
+    if open_base is None:
+        open_base = context.timer.open_time
+    if close_base is None:
+        close_base = context.timer.close_time
     assert math.isclose(open_base, 10, abs_tol=0.1), f"Expected OPEN base time 10, got {open_base}"
     assert math.isclose(close_base, 5, abs_tol=0.1), f"Expected CLOSE base time 5, got {close_base}"
 
@@ -68,8 +80,12 @@ def step_timer_mode_is(context, mode):
 
 @then('the timer should use the OPEN and CLOSE base times')
 def step_timer_uses_base_times(context):
-    open_base = getattr(context.timer, "open_time_base", context.timer.open_time)
-    close_base = getattr(context.timer, "close_time_base", context.timer.close_time)
+    open_base = getattr(context.timer, "_open_time_base", context.timer.open_time)
+    close_base = getattr(context.timer, "_close_time_base", context.timer.close_time)
+    if open_base is None:
+        open_base = context.timer.open_time
+    if close_base is None:
+        close_base = context.timer.close_time
     assert math.isclose(context.timer.open_time, open_base, abs_tol=0.1), f"Timer's open_time {context.timer.open_time} != base {open_base}"
     assert math.isclose(context.timer.close_time, close_base, abs_tol=0.1), f"Timer's close_time {context.timer.close_time} != base {close_base}"
 
@@ -94,10 +110,14 @@ def step_new_period_time_is_random_and_in_bounds(context):
     # Depending on status, check the appropriate value
     if context.timer.status == "OPEN":
         period = context.timer.open_time
-        base = getattr(context.timer, "open_time_base", period)
+        base = getattr(context.timer, "_open_time_base", period)
+        if base is None:
+            base = period
     else:
         period = context.timer.close_time
-        base = getattr(context.timer, "close_time_base", period)
+        base = getattr(context.timer, "_close_time_base", period)
+        if base is None:
+            base = period
     prev = getattr(context, "previous_period_time", None)
     assert 0 <= period <= base, f"Period time {period} not between 0 and {base}"
     if prev is not None:
@@ -107,8 +127,12 @@ def step_new_period_time_is_random_and_in_bounds(context):
 @then('the base times should not change')
 def step_base_times_should_not_change(context):
     # These should remain at their original test values (commonly 10 and 5)
-    open_base = getattr(context.timer, "open_time_base", context.timer.open_time)
-    close_base = getattr(context.timer, "close_time_base", context.timer.close_time)
+    open_base = getattr(context.timer, "_open_time_base", context.timer.open_time)
+    close_base = getattr(context.timer, "_close_time_base", context.timer.close_time)
+    if open_base is None:
+        open_base = context.timer.open_time
+    if close_base is None:
+        close_base = context.timer.close_time
     # Optionally, use context-stored initial values if tracked, else default to 10/5
     expected_open = getattr(context, "expected_open_time", 10)
     expected_close = getattr(context, "expected_close_time", 5)
