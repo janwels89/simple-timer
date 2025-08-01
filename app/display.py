@@ -120,7 +120,7 @@ class Display:
         self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
         self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
 
-        # Draw base value in small font after main value, if provided
+        # Always draw base value in small font after main value, even in loop mode
         next_x = num_x + number_w + 6
         if base is not None:
             base_str = f"({base})"
@@ -181,28 +181,22 @@ class Display:
         self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c, open_base, close_base)
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
-        is_random = getattr(timer, "mode", "") == "random"
-        if timer.status == "OPEN":
+        # Always show base values, even in loop mode
+        open_base = timer._open_time_base
+        close_base = timer._close_time_base
+
+        if hasattr(timer, "status") and timer.status == "OPEN":
             open_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
-                timer.open_time - timer.elapsed)))
-            if is_random:
-                close_remaining = getattr(timer, "next_time", timer.close_time)  # next CLOSE period
-            else:
-                close_remaining = timer.close_time  # fixed CLOSE
+                getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0))))
+            close_remaining = getattr(timer, "next_time", getattr(timer, "close_time", 0))
         else:
-            if is_random:
-                open_remaining = getattr(timer, "next_time", timer.open_time)  # next OPEN period
-            else:
-                open_remaining = timer.open_time  # fixed OPEN
+            open_remaining = getattr(timer, "next_time", getattr(timer, "open_time", 0))
             close_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
-                timer.close_time - timer.elapsed)))
+                getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0))))
 
         curr_a = status_a if status_a is not None else getattr(timer, "status_a", "")
         curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")
         curr_c = status_c if status_c is not None else getattr(timer, "status_c", "")
-
-        open_base = timer._open_time_base if is_random else None
-        close_base = timer._close_time_base if is_random else None
 
         current_state = {
             'open_remaining': open_remaining,
@@ -219,10 +213,10 @@ class Display:
                 open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base
             )
             self._last_state = current_state.copy()
+
         self._render_status_and_numbers(
             open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base
         )
-
 
 if __name__ == "__main__":
     display = Display()

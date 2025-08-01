@@ -52,7 +52,8 @@ class AppController:
         self.timer.status_b = ""
         self.timer.status_c = self.timer.mode
 
-        self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c)
+        self.display.draw_layout(self.timer.open_time, self.timer.close_time, self.timer.status_a, self.timer.status_b, self.timer.status_c,
+                                open_base=self.timer._open_time_base, close_base=self.timer._close_time_base)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
     def handle_buttons(self):
@@ -111,43 +112,24 @@ class AppController:
                 direction = -1
 
             if direction != 0:
-                if self.timer.mode == "random":
-                    # Adjust base value in random mode
-                    if self.selected_timer == "OPEN":
-                        self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
-                        # Always randomize both periods when in random mode and value changes
-                        self.timer.randomize_if_needed()
-                        logger.info(
-                            "%s OPEN base time to %d",
-                            "Increased" if direction > 0 else "Decreased",
-                            self.timer._open_time_base
-                        )
-                    elif self.selected_timer == "CLOSE":
-                        self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
-                        self.timer.randomize_if_needed()
-                        logger.info(
-                            "%s CLOSE base time to %d",
-                            "Increased" if direction > 0 else "Decreased",
-                            self.timer._close_time_base
-                        )
-                else:
-                    # Adjust direct value in loop mode
-                    if self.selected_timer == "OPEN":
-                        if direction > 0:
-                            self.timer.open_time = max(1, self.timer.open_time + 1)
-                            logger.info("Increased OPEN time to %d", self.timer.open_time)
-                        else:
-                            self.timer.open_time = max(1, self.timer.open_time - 1)
-                            logger.info("Decreased OPEN time to %d", self.timer.open_time)
-                        self.timer.save_settings()
-                    elif self.selected_timer == "CLOSE":
-                        if direction > 0:
-                            self.timer.close_time = max(1, self.timer.close_time + 1)
-                            logger.info("Increased CLOSE time to %d", self.timer.close_time)
-                        else:
-                            self.timer.close_time = max(1, self.timer.close_time - 1)
-                            logger.info("Decreased CLOSE time to %d", self.timer.close_time)
-                        self.timer.save_settings()
+                # Always adjust base values, regardless of mode
+                if self.selected_timer == "OPEN":
+                    self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
+                    self.timer.randomize_if_needed()
+                    logger.info(
+                        "%s OPEN base time to %d",
+                        "Increased" if direction > 0 else "Decreased",
+                        self.timer._open_time_base
+                    )
+                elif self.selected_timer == "CLOSE":
+                    self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
+                    self.timer.randomize_if_needed()
+                    logger.info(
+                        "%s CLOSE base time to %d",
+                        "Increased" if direction > 0 else "Decreased",
+                        self.timer._close_time_base
+                    )
+                self.timer.save_settings()
                 time.sleep(0.2)  # Debounce
 
         # Joystick right: toggle mode if no timer is selected, otherwise decrease time for selected timer
@@ -166,13 +148,15 @@ class AppController:
                     logger.info("Switched to loop mode")
                 # Always update status_c to reflect the new mode
                 self.timer.status_c = self.timer.mode
-                # Redraw the display with updated status_c
+                # Redraw the display with updated status_c and base values
                 self.display.draw_layout(
                     self.timer.open_time,
                     self.timer.close_time,
                     self.timer.status_a,
                     self.timer.status_b,
-                    self.timer.status_c
+                    self.timer.status_c,
+                    open_base=self.timer._open_time_base,
+                    close_base=self.timer._close_time_base
                 )
                 self.display.ShowImage(self.display.getbuffer(self.display.image))
             time.sleep(0.2)  # Debounce
