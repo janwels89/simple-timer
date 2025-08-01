@@ -57,7 +57,7 @@ class AppController:
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
     def handle_buttons(self):
-        # KEY2: Pause/Resume (short press), Reset (long press)
+        # KEY2: Pause/Resume (short press), Reset to start (2s), Full reset (5s)
         if self.buttons.is_pressed('KEY2'):
             if not self.key2_was_pressed:
                 self.key2_press_time = time.monotonic()
@@ -66,14 +66,22 @@ class AppController:
             if self.key2_was_pressed:
                 if self.key2_press_time is not None:
                     duration = time.monotonic() - self.key2_press_time
-                    if duration >= 2.0:
-                        # Long press: reset
+                    if duration >= 5.0:
+                        # Very long press: full reset
                         self.timer.enabled = False
                         self.timer.elapsed = 0
                         self.timer.show_zero = False
                         self.timer.status = "OPEN"
                         self.timer.reset_settings()
-                        logger.info("Timer stopped and reset (long press).")
+                        logger.info("Timer stopped and FULLY reset (key2 held ≥5s).")
+                    elif duration >= 2.0:
+                        # Long press: reset to start and reload settings
+                        self.timer.enabled = False
+                        self.timer.elapsed = 0
+                        self.timer.show_zero = False
+                        self.timer.status = "OPEN"
+                        self.timer.load_settings()
+                        logger.info("Timer stopped and reloaded from settings (key2 held ≥2s).")
                     else:
                         # Short press: pause/resume ONLY
                         if not self.timer.enabled:
@@ -139,16 +147,12 @@ class AppController:
             else:
                 # No timer selected - toggle random/loop mode
                 if self.timer.mode == "loop":
-                    self.timer.mode = "random"
-                    self.timer.randomize_if_needed()
+                    self.timer.set_mode("random")
                     logger.info("Switched to random mode")
                 else:
-                    self.timer.mode = "loop"
-                    self.timer.randomize_if_needed()  # This will restore base values
+                    self.timer.set_mode("loop")
                     logger.info("Switched to loop mode")
-                # Always update status_c to reflect the new mode
                 self.timer.status_c = self.timer.mode
-                # Redraw the display with updated status_c and base values
                 self.display.draw_layout(
                     self.timer.open_time,
                     self.timer.close_time,

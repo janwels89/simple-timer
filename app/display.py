@@ -120,7 +120,7 @@ class Display:
         self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
         self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
 
-        # Always draw base value in small font after main value, even in loop mode
+        # Always draw base value in small font after main value
         next_x = num_x + number_w + 6
         if base is not None:
             base_str = f"({base})"
@@ -129,7 +129,7 @@ class Display:
             base_x = next_x
             base_y = num_y + (number_h - base_bbox[3] + base_bbox[1]) // 2
             self.draw.text((base_x, base_y), base_str, font=small_font, fill=fill)
-            next_x = base_x + base_w + 8  # space after base value
+            next_x = base_x + base_w + 8
 
         # Optionally display next_time for debug/demo
         if next_val is not None:
@@ -160,7 +160,6 @@ class Display:
         self._create_background()
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        # Pass open_next and close_next to their respective rows
         self._draw_label_number(18, "OPEN", open_num, open_base, next_val=open_next)
         self._draw_label_number(42, "CLOSE", close_num, close_base, next_val=close_next)
 
@@ -181,18 +180,19 @@ class Display:
         self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c, open_base, close_base)
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
-        # Always show base values, even in loop mode
+        # Always show base values, mode-agnostic
         open_base = timer.open_time_base
         close_base = timer.close_time_base
 
-        if hasattr(timer, "status") and timer.status == "OPEN":
-            open_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
-                getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0))))
-            close_remaining = getattr(timer, "next_time", getattr(timer, "close_time", 0))
-        else:
-            open_remaining = getattr(timer, "next_time", getattr(timer, "open_time", 0))
-            close_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
-                getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0))))
+        # Remaining times: mode-agnostic, trust timer handler to set these correctly
+        open_remaining = (0 if getattr(timer, "show_zero", False)
+                          else max(0, int(round(getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0)))
+                          ) if getattr(timer, "status", "OPEN") == "OPEN"
+                          else getattr(timer, "next_time", getattr(timer, "open_time", 0)))
+        close_remaining = (getattr(timer, "next_time", getattr(timer, "close_time", 0))
+                           if getattr(timer, "status", "OPEN") == "OPEN"
+                           else 0 if getattr(timer, "show_zero", False)
+                           else max(0, int(round(getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0)))))
 
         curr_a = status_a if status_a is not None else getattr(timer, "status_a", "")
         curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")
@@ -215,7 +215,9 @@ class Display:
             self._last_state = current_state.copy()
 
         self._render_status_and_numbers(
-            open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base
+            open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base,
+            open_next=(timer.next_time if getattr(timer, "status", "") == "OPEN" else None),
+            close_next=(timer.next_time if getattr(timer, "status", "") == "CLOSE" else None)
         )
 
 if __name__ == "__main__":
