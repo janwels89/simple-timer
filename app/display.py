@@ -182,8 +182,8 @@ class Display:
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
         # Always show base values, even in loop mode
-        open_base = timer._open_time_base
-        close_base = timer._close_time_base
+        open_base = timer.open_time_base
+        close_base = timer.close_time_base
 
         if hasattr(timer, "status") and timer.status == "OPEN":
             open_remaining = 0 if getattr(timer, "show_zero", False) else max(0, int(round(
