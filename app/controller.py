@@ -28,6 +28,7 @@ class AppController:
         self._clock_symbols = ["|", "/", "-", "\\"]
         self._clock_index = 0
         self._last_anim_time = time.monotonic()
+        self._pause_spin = False
 
         self._init_display()
         self._check_mock_display()
@@ -111,6 +112,7 @@ class AppController:
             self.selected_timer = None
 
     def _handle_joystick_adjust(self):
+        # If editing a timer, adjust open/close base time as before
         if self.selected_timer:
             direction = 0
             if self.joystick.is_active('up'):
@@ -122,6 +124,20 @@ class AppController:
                 self._adjust_time_base(self.selected_timer, direction)
                 self.timer.save_settings()
                 time.sleep(0.2)  # Debounce
+
+        # If not editing and in "add" mode, adjust the increment value itself
+        elif self.timer.mode == "add":
+            direction = 0
+            if self.joystick.is_active('up'):
+                direction = 1
+            elif self.joystick.is_active('down'):
+                direction = -1
+
+            if direction != 0:
+                # Clamp to at least 1
+                self.timer.add_increment = max(1, self.timer.add_increment + direction)
+                logger.info(f"Changed 'add' mode increment to {self.timer.add_increment}")
+                time.sleep(0.2)
 
     def _adjust_time_base(self, timer_type, direction):
         if timer_type == "OPEN":
@@ -170,8 +186,10 @@ class AppController:
         if self.timer.enabled:
             self.timer.last_update_time = time.monotonic()
             logger.info("Timer resumed (short press).")
+            self._pause_spin = False  # Resume spinning
         else:
             logger.info("Timer paused (short press).")
+            self._pause_spin = True   # Pause spinning, but keep spinner visible
 
     def _reset_and_reload(self):
         self.timer.enabled = False
@@ -179,6 +197,7 @@ class AppController:
         self.timer.show_zero = False
         self.timer.status = "OPEN"
         self.timer.load_settings()
+        self._pause_spin = True  # Keep spinner visible and paused
 
     def _full_reset(self):
         self.timer.enabled = False
@@ -186,6 +205,7 @@ class AppController:
         self.timer.show_zero = False
         self.timer.status = "OPEN"
         self.timer.reset_settings()
+        self._pause_spin = True  # Keep spinner visible and paused
 
     def log_timer_state_changes(self):
         self._log_state_change('enabled', self.timer.enabled, '_last_timer_enabled')
@@ -213,16 +233,21 @@ class AppController:
             self._cleanup()
 
     def _update_timer_and_display(self):
+        now = time.monotonic()
         if self.timer.enabled:
             self.timer.update()
             # Animate spinner for status_a
-            now = time.monotonic()
             if now - self._last_anim_time > 0.2:
                 self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
                 self._last_anim_time = now
             self.timer.status_a = self._clock_symbols[self._clock_index]
         else:
-            self.timer.status_a = ""
+            # When paused, keep spinner symbol, but do not advance
+            self.timer.status_a = self._clock_symbols[self._clock_index]
+
+        # Always show the increment value in status_b
+        self.timer.status_b = f"inc: {self.timer.mode_handler.get_increment()}"
+
         self.display.update_values(self.timer)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 

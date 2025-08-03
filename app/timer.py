@@ -2,7 +2,7 @@ import time
 import os
 import json
 import logging
-from app.timer_modes import LoopModeHandler, RandomModeHandler
+from app.timer_modes import LoopModeHandler, RandomModeHandler, AddModeHandler
 
 SETTINGS_FILE = "settings.json"
 logger = logging.getLogger(__name__)
@@ -14,6 +14,7 @@ class TimerController:
     MODE_HANDLERS = {
         "loop": LoopModeHandler,
         "random": RandomModeHandler,
+        "add": AddModeHandler,
         # Add future modes here!
     }
 
@@ -30,6 +31,7 @@ class TimerController:
         self._open_time_base = self.open_time
         self._close_time_base = self.close_time
         self.next_time = None
+        self.add_increment = 1  # <-- Add this line for add mode
 
         self.set_mode(self.mode)
         self.load_settings()
@@ -53,17 +55,18 @@ class TimerController:
             "elapsed": round(self.elapsed, 3),
             "show_zero": self.show_zero,
             "next_time": self.next_time,
+            "add_increment": self.add_increment,
         }
         if state != self._last_state:
             logger.info(
-                "Timer state changed: open_time=%s, close_time=%s, status=%s, enabled=%s, elapsed=%.3f, show_zero=%s, next_time=%s",
-                self.open_time, self.close_time, self.status, self.enabled, self.elapsed, self.show_zero, self.next_time
+                "Timer state changed: open_time=%s, close_time=%s, status=%s, enabled=%s, elapsed=%.3f, show_zero=%s, next_time=%s, add_increment=%s",
+                self.open_time, self.close_time, self.status, self.enabled, self.elapsed, self.show_zero, self.next_time, self.add_increment
             )
             self._last_state = state.copy()
 
     def _debug_random(self, msg):
         logger.debug(
-            f"[RANDOM] {msg} | open={self.open_time}, close={self.close_time}, next_time={self.next_time}, base_open={self._open_time_base}, base_close={self._close_time_base}")
+            f"[RANDOM] {msg} | open={self.open_time}, close={self.close_time}, next_time={self.next_time}, base_open={self._open_time_base}, base_close={self._close_time_base}, add_increment={self.add_increment}")
 
     def update(self):
         if not self.enabled:
@@ -110,7 +113,8 @@ class TimerController:
     def save_settings(self):
         data = {
             "open_time": int(self._open_time_base),
-            "close_time": int(self._close_time_base)
+            "close_time": int(self._close_time_base),
+            "add_increment": int(self.add_increment),  # Save increment value too
         }
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f)
@@ -123,14 +127,17 @@ class TimerController:
                     data = json.load(f)
                     self.open_time = int(data.get("open_time", self.DEFAULT_OPEN_TIME))
                     self.close_time = int(data.get("close_time", self.DEFAULT_CLOSE_TIME))
+                    self.add_increment = int(data.get("add_increment", 1))  # Load increment value
                 loaded = True
             except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
                 logger.error(f"Failed to load timer settings, using defaults. Error: {e}")
                 self.open_time = self.DEFAULT_OPEN_TIME
                 self.close_time = self.DEFAULT_CLOSE_TIME
+                self.add_increment = 1
         else:
             self.open_time = self.DEFAULT_OPEN_TIME
             self.close_time = self.DEFAULT_CLOSE_TIME
+            self.add_increment = 1
 
         self._open_time_base = self.open_time
         self._close_time_base = self.close_time
@@ -147,6 +154,7 @@ class TimerController:
             os.remove(SETTINGS_FILE)
         self.open_time = self.DEFAULT_OPEN_TIME
         self.close_time = self.DEFAULT_CLOSE_TIME
+        self.add_increment = 1  # Reset increment on reset
         self._open_time_base = self.open_time
         self._close_time_base = self.close_time
         self.mode_handler.initialize()
