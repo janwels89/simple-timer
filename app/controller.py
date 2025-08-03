@@ -73,6 +73,7 @@ class AppController:
         self._handle_key2_press()
         self._handle_select_press('KEY3', 'OPEN')
         self._handle_select_press('KEY1', 'CLOSE')
+        self._handle_mode_select_press()  # NEW: joystick press for mode select/deselect
         self._handle_selection_exit()
         self._handle_joystick_adjust()
         self._handle_joystick_mode_cycle()
@@ -106,38 +107,53 @@ class AppController:
                 self.selected_timer = timer_type
                 logger.info(f"Selected {timer_type} timer for editing.")
 
+    def _handle_mode_select_press(self):
+        # Joystick "press" (center click) selects MODE, and deselects OPEN/CLOSE if selected
+        if self.joystick.is_active('press'):  # FIXED: use is_active, not is_pressed
+            if self.selected_timer == "MODE":
+                logger.info("Exited MODE selection (joystick pressed again)")
+                self.selected_timer = None
+            else:
+                if self.selected_timer in ("OPEN", "CLOSE"):
+                    logger.info(f"Switching from {self.selected_timer} selection to MODE (joystick press)")
+                else:
+                    logger.info("Selected MODE for editing (joystick press)")
+                self.selected_timer = "MODE"
+
     def _handle_selection_exit(self):
+        # KEY2 always exits any selection
         if self.selected_timer and self.buttons.is_pressed('KEY2'):
             logger.info(f"Exited selection mode for {self.selected_timer} (KEY2).")
             self.selected_timer = None
+        # Joystick left/right also exits MODE selection (for consistency)
+        elif self.selected_timer == "MODE" and (self.joystick.is_active('left') or self.joystick.is_active('right')):
+            logger.info(f"Exited selection mode for MODE (joystick left/right).")
+            self.selected_timer = None
 
     def _handle_joystick_adjust(self):
-        # If editing a timer, adjust open/close base time as before
-        if self.selected_timer:
-            direction = 0
-            if self.joystick.is_active('up'):
-                direction = 1
-            elif self.joystick.is_active('down'):
-                direction = -1
+        direction = 0
+        if self.joystick.is_active('up'):
+            direction = 1
+        elif self.joystick.is_active('down'):
+            direction = -1
 
-            if direction != 0:
-                self._adjust_time_base(self.selected_timer, direction)
-                self.timer.save_settings()
-                time.sleep(0.2)  # Debounce
+        if direction == 0:
+            return
 
-        # If not editing and in "add" mode, adjust the increment value itself
-        elif self.timer.mode == "add":
-            direction = 0
-            if self.joystick.is_active('up'):
-                direction = 1
-            elif self.joystick.is_active('down'):
-                direction = -1
-
-            if direction != 0:
-                # Clamp to at least 1
-                self.timer.add_increment = max(1, self.timer.add_increment + direction)
-                logger.info(f"Changed 'add' mode increment to {self.timer.add_increment}")
-                time.sleep(0.2)
+        if self.selected_timer == "OPEN":
+            self._adjust_time_base("OPEN", direction)
+            self.timer.save_settings()
+            time.sleep(0.2)  # Debounce
+        elif self.selected_timer == "CLOSE":
+            self._adjust_time_base("CLOSE", direction)
+            self.timer.save_settings()
+            time.sleep(0.2)  # Debounce
+        elif self.selected_timer == "MODE":
+            self.timer.handle_mode_adjustment(direction)
+            time.sleep(0.2)
+        else:
+            # No selection: do nothing or default (optional)
+            pass
 
     def _adjust_time_base(self, timer_type, direction):
         if timer_type == "OPEN":
@@ -164,22 +180,16 @@ class AppController:
             if self.selected_timer:
                 logger.info(f"Exited selection mode for {self.selected_timer} (joystick {'left' if left else 'right'}).")
                 self.selected_timer = None
-            else:
-                self._cycle_timer_mode(-1 if left else 1)
-                self.timer.status_c = self.timer.mode
-                self._draw_layout()
+            # Always cycle mode after exiting timer selection (or if none selected)
+            self._cycle_timer_mode(-1 if left else 1)
+            self.timer.status_c = self.timer.mode
+            self._draw_layout()
             time.sleep(0.2)  # Debounce
 
     def _cycle_timer_mode(self, direction):
-        mode_list = list(self.timer.MODE_HANDLERS.keys())
-        try:
-            current_index = mode_list.index(self.timer.mode)
-        except ValueError:
-            current_index = 0
-        new_index = (current_index + direction) % len(mode_list)
-        new_mode = mode_list[new_index]
-        self.timer.set_mode(new_mode)
-        logger.info(f"Switched to {new_mode} mode")
+        # Delegate mode cycling to timer controller
+        self.timer.cycle_mode(direction)
+        logger.info(f"Switched to {self.timer.mode} mode")
 
     def _toggle_pause_resume(self):
         self.timer.enabled = not self.timer.enabled
@@ -245,8 +255,8 @@ class AppController:
             # When paused, keep spinner symbol, but do not advance
             self.timer.status_a = self._clock_symbols[self._clock_index]
 
-        # Always show the increment value in status_b
-        self.timer.status_b = f"inc: {self.timer.mode_handler.get_increment()}"
+        # Ask timer for status_b (mode-specific display)
+        self.timer.status_b = self.timer.get_status_b()
 
         self.display.update_values(self.timer)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
