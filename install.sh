@@ -127,7 +127,7 @@ echo "Creating systemd service /etc/systemd/system/$SERVICE_NAME.service..."
 sudo tee "/etc/systemd/system/$SERVICE_NAME.service" > /dev/null <<EOF
 [Unit]
 Description=Simple Timer Controller
-After=network.target
+After=multi-user.target
 
 [Service]
 Type=simple
@@ -136,6 +136,7 @@ WorkingDirectory=$INSTALL_DIR
 ExecStart=$VENV_DIR/bin/python $ENTRY
 Restart=on-failure
 Environment=DISPLAY_DRIVER=real
+Environment=GPIO_DRIVER=real
 
 [Install]
 WantedBy=multi-user.target
