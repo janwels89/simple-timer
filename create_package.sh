@@ -2,8 +2,8 @@
 set -e
 
 # Detect version from latest git tag
-VERSION=$(git tag --sort=-creatordate | head -n1)
-GIT_DESCRIBE=$(git describe --tags --always)
+VERSION=$(git tag --sort=-creatordate | head -n1 2>/dev/null || echo "v0.0.0")
+GIT_DESCRIBE=$(git describe --tags --always 2>/dev/null || echo "$VERSION")
 
 # If HEAD is not at the tag, append short hash
 if [[ "$GIT_DESCRIBE" != "$VERSION" ]]; then
@@ -22,31 +22,21 @@ echo "Detected version: $VERSION"
 echo "__version__ = \"$VERSION\"" > app/version.py
 echo "Wrote version to app/version.py"
 
-IMAGE_NAME="pyinstaller-arm64"
-DOCKERFILE="Dockerfile.pyinstaller-arm64"
-BUILD_DIR="build_arm64"
-DEPLOY_DIR="simple-timer-$VERSION"
+BUILD_DIR="build_simple-timer-$VERSION"
 
-echo "Building Podman image $IMAGE_NAME ..."
-podman build --platform linux/arm64 -f "$DOCKERFILE" -t "$IMAGE_NAME" .
-
-rm -rf "$BUILD_DIR" "$DEPLOY_DIR" dist build __pycache__
-
+rm -rf "$BUILD_DIR"
 mkdir "$BUILD_DIR"
-cp -r app features main.py requirements.txt "$BUILD_DIR"/
 
-podman run --rm \
-    -v "$PWD/build_arm64":/work:Z \
-    -w /work \
-    --user 0:0 \
-    "$IMAGE_NAME" \
-    bash -c "ls -l && pyinstaller --onefile main.py --name simple-timer"
+# Copy only app, device, features, main.py, requirements.txt (NO tests)
+cp -r app device fonts features main.py requirements.txt "$BUILD_DIR"/
 
-mkdir "$DEPLOY_DIR"
-cp "$BUILD_DIR/dist/simple-timer" "$DEPLOY_DIR/"
 
-tar czf "$DEPLOY_DIR.tar.gz" "$DEPLOY_DIR"
+# Optionally: copy install.sh if you have one for Pi setup
+cp install.sh "$BUILD_DIR/"
+chmod +x "$BUILD_DIR/install.sh"
 
-rm -rf "$BUILD_DIR" "$DEPLOY_DIR"
+tar czf "$BUILD_DIR.tar.gz" "$BUILD_DIR"
 
-echo "Build and packaging complete. Distributable: $DEPLOY_DIR.tar.gz"
+rm -rf "$BUILD_DIR"
+
+echo "Source packaging complete. Distributable: $BUILD_DIR.tar.gz"
