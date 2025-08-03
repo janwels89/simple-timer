@@ -308,10 +308,10 @@ class AppController:
     def _update_output(self):
         """Set GPIO output based on timer status, only when it changes."""
         if self.timer.status != self._last_output_status:
-            if self.timer.status == "OPEN":
-                self.output.set_state(1, True)   # Valve OPEN (GPIO4 HIGH)
+            if self.timer.status == "CLOSE":
+                self.output.set_state(1, True)   # Relay ON (GPIO4 LOW)
             else:
-                self.output.set_state(1, False)  # Valve CLOSED (GPIO4 LOW)
+                self.output.set_state(1, False)  # Relay OFF (GPIO4 HIGH)
             self._last_output_status = self.timer.status
 
     def _cleanup(self):
