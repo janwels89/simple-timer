@@ -46,30 +46,34 @@ class Output:
         GPIO.setmode(GPIO.BCM)
         for pin in self._pin_mapping.values():
             GPIO.setup(pin, GPIO.OUT)
-        # Optional: set initial state (both OFF)
+        # Optional: set initial state (both OFF, i.e. HIGH for active LOW relay)
         for pin in self._pin_mapping.values():
-            GPIO.output(pin, GPIO.LOW)
+            GPIO.output(pin, GPIO.HIGH)
 
     def set_state(self, output_number, state):
         """
         Set the state of an output.
         output_number: 1 or 2
         state: True (ON) or False (OFF)
+        For most relay modules (active LOW):
+            - ON  -> GPIO.LOW (relay energizes, click)
+            - OFF -> GPIO.HIGH (relay de-energizes)
         """
         pin = self._pin_mapping.get(output_number)
         if pin is None:
             raise ValueError(f"Invalid output number: {output_number}")
-        GPIO.output(pin, GPIO.HIGH if state else GPIO.LOW)
+        # Active LOW logic: relay activates when pin is LOW
+        GPIO.output(pin, GPIO.LOW if state else GPIO.HIGH)
 
     def get_state(self, output_number):
         """
         Get the state of an output.
-        Returns: True if ON (HIGH), False if OFF (LOW)
+        Returns: True if ON (relay energized, GPIO LOW), False if OFF (GPIO HIGH)
         """
         pin = self._pin_mapping.get(output_number)
         if pin is None:
             raise ValueError(f"Invalid output number: {output_number}")
-        return GPIO.input(pin) == GPIO.HIGH
+        return GPIO.input(pin) == GPIO.LOW  # True means relay should be ON
 
     def cleanup(self):
         GPIO.cleanup()
