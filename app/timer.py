@@ -111,7 +111,7 @@ class TimerController:
                 self.zero_status = None
                 self.elapsed = 0
                 self.mode_handler.transition()
-                self.status = "OPEN"  # Always set to OPEN after a reset/transition if needed
+                # self.status = "OPEN"  # <-- REMOVED: let the mode handler set status
                 self._debug_random(f"Transition ({self.status}) - AFTER")
                 self._log_state_change()
                 break

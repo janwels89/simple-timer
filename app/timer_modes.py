@@ -160,15 +160,13 @@ class AddModeHandler(BaseModeHandler):
             return
 
         if self.timer.status == "OPEN":
-            self.timer.status = "CLOSE"
+            # On entering CLOSE, increment for this cycle
             if not self._first_cycle:
                 self._accumulated += self.timer.add_increment
             else:
                 self._first_cycle = False
+            self.timer.status = "CLOSE"
             self._update_times()
-            # If you want to limit close time, you could check here (for completeness, but not necessary for positive increments)
-            if self.timer.close_time <= 0:
-                self._reset_next = True
             self.set_next_time()
         else:
             self.timer.status = "OPEN"
@@ -220,6 +218,7 @@ class AddSubModeHandler(BaseModeHandler):
     On every CLOSE cycle, subtract the increment from open time and add it to close time.
     If open time reaches zero or less, run OPEN with that time, then one CLOSE, then reset and start again.
     close_time is allowed to go to zero or negative.
+    The increment is applied after each CLOSE, except the last one before reset.
     """
     def __init__(self, timer):
         super().__init__(timer)
@@ -234,14 +233,13 @@ class AddSubModeHandler(BaseModeHandler):
 
     def _update_times(self):
         open_time = self.timer._open_time_base - self._accumulated * self.timer.add_increment
-        close_incr = max(0, self._accumulated - 1)
-        close_time = self.timer._close_time_base + close_incr * self.timer.add_increment
+        close_time = self.timer._close_time_base + self._accumulated * self.timer.add_increment
         self.timer.open_time = open_time
         self.timer.close_time = close_time
 
     def transition(self):
         if self._reset_next:
-            # After the last CLOSE, reset everything and start at OPEN
+            # Reset everything and start again
             self._accumulated = 0
             self._reset_next = False
             self.timer.status = "OPEN"
@@ -250,30 +248,29 @@ class AddSubModeHandler(BaseModeHandler):
             return
 
         if self.timer.status == "OPEN":
-            # If this open time is <= 0, set flag to reset after the NEXT CLOSE
             if self.timer.open_time <= 0:
                 self._reset_next = True
             self.timer.status = "CLOSE"
-            self._accumulated += 1
             self._update_times()
             self.set_next_time()
         else:
+            # Only increment if not about to reset
+            if not self._reset_next:
+                self._accumulated += 1
             self.timer.status = "OPEN"
             self._update_times()
             self.set_next_time()
 
     def set_next_time(self):
         if self._reset_next and self.timer.status == "CLOSE":
-            # After this CLOSE, we'll reset, so next open time will be base
             self.timer.next_time = self.timer.open_time_base
         elif self.timer.status == "OPEN":
-            # Next is CLOSE
-            next_accum = self._accumulated + 1
-            close_incr = max(0, next_accum - 1)
-            self.timer.next_time = self.timer.close_time_base + close_incr * self.timer.add_increment
-        else:
-            # Next is OPEN
+            # Next is CLOSE: use current _accumulated, not pre-incremented
             next_accum = self._accumulated
+            self.timer.next_time = self.timer.close_time_base + next_accum * self.timer.add_increment
+        else:
+            # Next is OPEN: if next will be a reset, show base
+            next_accum = self._accumulated + 1 if not self._reset_next else 0
             self.timer.next_time = self.timer.open_time_base - next_accum * self.timer.add_increment
 
     def adjust_time(self, delta):
