@@ -3,6 +3,7 @@ import logging
 from app.timer import TimerController
 from app.display import Display
 from app.input import ButtonInput, JoystickInput
+from app.output import Output  # <-- Added for output integration
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,8 @@ class AppController:
         self.timer = TimerController()
         self.buttons = ButtonInput()
         self.joystick = JoystickInput()
+        self.output = Output()  # <-- Instantiate Output for controlling GPIOs
+        self._last_output_status = self.timer.status  # <-- Track last output status
         self.running = True
         self.selected_timer = None
         self.key2_was_pressed = False
@@ -246,6 +249,7 @@ class AppController:
         now = time.monotonic()
         if self.timer.enabled:
             self.timer.update()
+            self._update_output()  # <-- Call output update on timer update
             # Animate spinner for status_a
             if now - self._last_anim_time > 0.2:
                 self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
@@ -261,9 +265,19 @@ class AppController:
         self.display.update_values(self.timer)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
+    def _update_output(self):
+        """Set GPIO output based on timer status, only when it changes."""
+        if self.timer.status != self._last_output_status:
+            if self.timer.status == "OPEN":
+                self.output.set_state(1, True)   # Valve OPEN (GPIO4 HIGH)
+            else:
+                self.output.set_state(1, False)  # Valve CLOSED (GPIO4 LOW)
+            self._last_output_status = self.timer.status
+
     def _cleanup(self):
         self.buttons.cleanup()
         self.joystick.cleanup()
+        self.output.cleanup()  # <-- Ensure GPIO cleanup on exit
         if hasattr(self.display, "hw") and hasattr(self.display.hw, "RPI"):
             try:
                 self.display.hw.RPI.module_exit()
