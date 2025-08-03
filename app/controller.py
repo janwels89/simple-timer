@@ -28,6 +28,7 @@ class AppController:
         self._clock_symbols = ["|", "/", "-", "\\"]
         self._clock_index = 0
         self._last_anim_time = time.monotonic()
+        self._pause_spin = False
 
         self._init_display()
         self._check_mock_display()
@@ -70,11 +71,12 @@ class AppController:
 
     def handle_buttons(self):
         self._handle_key2_press()
-        self._handle_key3_press()
-        self._handle_key1_press()
+        self._handle_select_press('KEY3', 'OPEN')
+        self._handle_select_press('KEY1', 'CLOSE')
+        self._handle_mode_select_press()  # NEW: joystick press for mode select/deselect
         self._handle_selection_exit()
         self._handle_joystick_adjust()
-        self._handle_joystick_right()
+        self._handle_joystick_mode_cycle()
 
     def _handle_key2_press(self):
         if self.buttons.is_pressed('KEY2'):
@@ -96,14 +98,108 @@ class AppController:
                 self.key2_press_time = None
                 self.key2_was_pressed = False
 
+    def _handle_select_press(self, key, timer_type):
+        if self.buttons.is_pressed(key):
+            if self.selected_timer == timer_type:
+                logger.info(f"Exited selection mode for {timer_type} ({key} pressed again).")
+                self.selected_timer = None
+            else:
+                self.selected_timer = timer_type
+                logger.info(f"Selected {timer_type} timer for editing.")
+
+    def _handle_mode_select_press(self):
+        # Joystick "press" (center click) selects MODE, and deselects OPEN/CLOSE if selected
+        if self.joystick.is_active('press'):  # FIXED: use is_active, not is_pressed
+            if self.selected_timer == "MODE":
+                logger.info("Exited MODE selection (joystick pressed again)")
+                self.selected_timer = None
+            else:
+                if self.selected_timer in ("OPEN", "CLOSE"):
+                    logger.info(f"Switching from {self.selected_timer} selection to MODE (joystick press)")
+                else:
+                    logger.info("Selected MODE for editing (joystick press)")
+                self.selected_timer = "MODE"
+
+    def _handle_selection_exit(self):
+        # KEY2 always exits any selection
+        if self.selected_timer and self.buttons.is_pressed('KEY2'):
+            logger.info(f"Exited selection mode for {self.selected_timer} (KEY2).")
+            self.selected_timer = None
+        # Joystick left/right also exits MODE selection (for consistency)
+        elif self.selected_timer == "MODE" and (self.joystick.is_active('left') or self.joystick.is_active('right')):
+            logger.info(f"Exited selection mode for MODE (joystick left/right).")
+            self.selected_timer = None
+
+    def _handle_joystick_adjust(self):
+        direction = 0
+        if self.joystick.is_active('up'):
+            direction = 1
+        elif self.joystick.is_active('down'):
+            direction = -1
+
+        if direction == 0:
+            return
+
+        if self.selected_timer == "OPEN":
+            self._adjust_time_base("OPEN", direction)
+            self.timer.save_settings()
+            time.sleep(0.2)  # Debounce
+        elif self.selected_timer == "CLOSE":
+            self._adjust_time_base("CLOSE", direction)
+            self.timer.save_settings()
+            time.sleep(0.2)  # Debounce
+        elif self.selected_timer == "MODE":
+            self.timer.handle_mode_adjustment(direction)
+            time.sleep(0.2)
+        else:
+            # No selection: do nothing or default (optional)
+            pass
+
+    def _adjust_time_base(self, timer_type, direction):
+        if timer_type == "OPEN":
+            self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
+            self.timer.randomize_if_needed()
+            logger.info(
+                "%s OPEN base time to %d",
+                "Increased" if direction > 0 else "Decreased",
+                self.timer._open_time_base
+            )
+        elif timer_type == "CLOSE":
+            self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
+            self.timer.randomize_if_needed()
+            logger.info(
+                "%s CLOSE base time to %d",
+                "Increased" if direction > 0 else "Decreased",
+                self.timer._close_time_base
+            )
+
+    def _handle_joystick_mode_cycle(self):
+        left = self.joystick.is_active('left')
+        right = self.joystick.is_active('right')
+        if left or right:
+            if self.selected_timer:
+                logger.info(f"Exited selection mode for {self.selected_timer} (joystick {'left' if left else 'right'}).")
+                self.selected_timer = None
+            # Always cycle mode after exiting timer selection (or if none selected)
+            self._cycle_timer_mode(-1 if left else 1)
+            self.timer.status_c = self.timer.mode
+            self._draw_layout()
+            time.sleep(0.2)  # Debounce
+
+    def _cycle_timer_mode(self, direction):
+        # Delegate mode cycling to timer controller
+        self.timer.cycle_mode(direction)
+        logger.info(f"Switched to {self.timer.mode} mode")
+
     def _toggle_pause_resume(self):
-        if not self.timer.enabled:
-            self.timer.enabled = True
+        self.timer.enabled = not self.timer.enabled
+        if self.timer.enabled:
             self.timer.last_update_time = time.monotonic()
             logger.info("Timer resumed (short press).")
+            self._pause_spin = False  # Resume spinning
         else:
-            self.timer.enabled = False
             logger.info("Timer paused (short press).")
+            self._pause_spin = True   # Pause spinning, but keep spinner visible
 
     def _reset_and_reload(self):
         self.timer.enabled = False
@@ -111,6 +207,7 @@ class AppController:
         self.timer.show_zero = False
         self.timer.status = "OPEN"
         self.timer.load_settings()
+        self._pause_spin = True  # Keep spinner visible and paused
 
     def _full_reset(self):
         self.timer.enabled = False
@@ -118,71 +215,7 @@ class AppController:
         self.timer.show_zero = False
         self.timer.status = "OPEN"
         self.timer.reset_settings()
-
-    def _handle_key3_press(self):
-        if self.buttons.is_pressed('KEY3'):
-            if self.selected_timer != "OPEN":
-                self.selected_timer = "OPEN"
-                logger.info("Selected OPEN timer for editing.")
-
-    def _handle_key1_press(self):
-        if self.buttons.is_pressed('KEY1'):
-            if self.selected_timer != "CLOSE":
-                self.selected_timer = "CLOSE"
-                logger.info("Selected CLOSE timer for editing.")
-
-    def _handle_selection_exit(self):
-        if self.selected_timer and self.buttons.is_pressed('KEY2'):
-            logger.info(f"Exited selection mode for {self.selected_timer}.")
-            self.selected_timer = None
-
-    def _handle_joystick_adjust(self):
-        if self.selected_timer:
-            direction = 0
-            if self.joystick.is_active('up'):
-                direction = 1
-            elif self.joystick.is_active('down'):
-                direction = -1
-
-            if direction != 0:
-                if self.selected_timer == "OPEN":
-                    self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
-                    self.timer.randomize_if_needed()
-                    logger.info(
-                        "%s OPEN base time to %d",
-                        "Increased" if direction > 0 else "Decreased",
-                        self.timer._open_time_base
-                    )
-                elif self.selected_timer == "CLOSE":
-                    self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
-                    self.timer.randomize_if_needed()
-                    logger.info(
-                        "%s CLOSE base time to %d",
-                        "Increased" if direction > 0 else "Decreased",
-                        self.timer._close_time_base
-                    )
-                self.timer.save_settings()
-                time.sleep(0.2)  # Debounce
-
-    def _handle_joystick_right(self):
-        if self.joystick.is_active('right'):
-            if self.selected_timer == "OPEN":
-                # Reserved for future use or additional feature
-                pass
-            else:
-                # No timer selected - toggle random/loop mode
-                self._toggle_timer_mode()
-                self.timer.status_c = self.timer.mode
-                self._draw_layout()
-            time.sleep(0.2)  # Debounce
-
-    def _toggle_timer_mode(self):
-        if self.timer.mode == "loop":
-            self.timer.set_mode("random")
-            logger.info("Switched to random mode")
-        else:
-            self.timer.set_mode("loop")
-            logger.info("Switched to loop mode")
+        self._pause_spin = True  # Keep spinner visible and paused
 
     def log_timer_state_changes(self):
         self._log_state_change('enabled', self.timer.enabled, '_last_timer_enabled')
@@ -210,16 +243,21 @@ class AppController:
             self._cleanup()
 
     def _update_timer_and_display(self):
+        now = time.monotonic()
         if self.timer.enabled:
             self.timer.update()
             # Animate spinner for status_a
-            now = time.monotonic()
             if now - self._last_anim_time > 0.2:
                 self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
                 self._last_anim_time = now
             self.timer.status_a = self._clock_symbols[self._clock_index]
         else:
-            self.timer.status_a = ""
+            # When paused, keep spinner symbol, but do not advance
+            self.timer.status_a = self._clock_symbols[self._clock_index]
+
+        # Ask timer for status_b (mode-specific display)
+        self.timer.status_b = self.timer.get_status_b()
+
         self.display.update_values(self.timer)
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 

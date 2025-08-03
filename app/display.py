@@ -101,7 +101,7 @@ class Display:
             logger.warning(f"Falling back to default font: {e}")
             return ImageFont.load_default()
 
-    def _draw_label_number(self, y, label, number, base=None, fill=0, next_val=None):
+    def _draw_label_number(self, y, label, number, base=None, fill=0, next_val=None, flash=False):
         label_font = self.font_label
         number_font = self.font_number
         small_font = self.font_small
@@ -109,6 +109,8 @@ class Display:
         label_x = 5
         label_y = y
         number_str = str(number)
+        if flash:
+            number_str = "0"
         label_bbox = label_font.getbbox(label)
         label_h = label_bbox[3] - label_bbox[1]
         number_bbox = number_font.getbbox(number_str)
@@ -153,15 +155,16 @@ class Display:
             self.draw.text((self.width - w - 2, self.height - 12), str(self.status_c), font=font, fill=0)
 
     def _render_status_and_numbers(self, open_num, close_num, status_a, status_b, status_c,
-                                  open_base=None, close_base=None, open_next=None, close_next=None):
+                                  open_base=None, close_base=None, open_next=None, close_next=None,
+                                  flash_open=False, flash_close=False):
         self.status_a = status_a
         self.status_b = status_b
         self.status_c = status_c
         self._create_background()
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
-        self._draw_label_number(18, "OPEN", open_num, open_base, next_val=open_next)
-        self._draw_label_number(42, "CLOSE", close_num, close_base, next_val=close_next)
+        self._draw_label_number(18, "OPEN", open_num, open_base, next_val=open_next, flash=flash_open)
+        self._draw_label_number(42, "CLOSE", close_num, close_base, next_val=close_next, flash=flash_close)
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c, open_base=None, close_base=None):
         current_state = {
@@ -184,15 +187,19 @@ class Display:
         open_base = timer.open_time_base
         close_base = timer.close_time_base
 
-        # Remaining times: mode-agnostic, trust timer handler to set these correctly
-        open_remaining = (0 if getattr(timer, "show_zero", False)
-                          else max(0, int(round(getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0)))
-                          ) if getattr(timer, "status", "OPEN") == "OPEN"
-                          else getattr(timer, "next_time", getattr(timer, "open_time", 0)))
-        close_remaining = (getattr(timer, "next_time", getattr(timer, "close_time", 0))
-                           if getattr(timer, "status", "OPEN") == "OPEN"
-                           else 0 if getattr(timer, "show_zero", False)
-                           else max(0, int(round(getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0)))))
+        # Determine which should flash zero
+        flash_open = getattr(timer, "show_zero", False) and getattr(timer, "zero_status", None) == "OPEN"
+        flash_close = getattr(timer, "show_zero", False) and getattr(timer, "zero_status", None) == "CLOSE"
+
+        # Remaining times: show 0 only if flashing for that label
+        if flash_open:
+            open_remaining = 0
+        else:
+            open_remaining = max(0, int(round(getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0)))) if getattr(timer, "status", "OPEN") == "OPEN" else getattr(timer, "next_time", getattr(timer, "open_time", 0))
+        if flash_close:
+            close_remaining = 0
+        else:
+            close_remaining = getattr(timer, "next_time", getattr(timer, "close_time", 0)) if getattr(timer, "status", "OPEN") == "OPEN" else max(0, int(round(getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0))))
 
         curr_a = status_a if status_a is not None else getattr(timer, "status_a", "")
         curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")
@@ -206,18 +213,22 @@ class Display:
             'status_c': curr_c,
             'open_base': open_base,
             'close_base': close_base,
+            'flash_open': flash_open,
+            'flash_close': flash_close,
         }
         if current_state != self._last_state:
             logger.debug(
-                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s, open_base=%s, close_base=%s",
-                open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base
+                "Display.update_values called: open_remaining=%s, close_remaining=%s, a=%s, b=%s, c=%s, open_base=%s, close_base=%s, flash_open=%s, flash_close=%s",
+                open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base, flash_open, flash_close
             )
             self._last_state = current_state.copy()
 
         self._render_status_and_numbers(
             open_remaining, close_remaining, curr_a, curr_b, curr_c, open_base, close_base,
             open_next=(timer.next_time if getattr(timer, "status", "") == "OPEN" else None),
-            close_next=(timer.next_time if getattr(timer, "status", "") == "CLOSE" else None)
+            close_next=(timer.next_time if getattr(timer, "status", "") == "CLOSE" else None),
+            flash_open=flash_open,
+            flash_close=flash_close
         )
 
 if __name__ == "__main__":
