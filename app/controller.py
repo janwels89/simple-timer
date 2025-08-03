@@ -7,10 +7,59 @@ from app.output import Output  # <-- Added for output integration
 
 logger = logging.getLogger(__name__)
 
+def get_version():
+    try:
+        from app.version import __version__
+        return __version__
+    except Exception:
+        return "unknown"
+
+def get_text_size(draw, text, font):
+    # Pillow >=10: use textbbox, else fallback to textsize
+    if hasattr(draw, "textbbox"):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        return bbox[2] - bbox[0], bbox[3] - bbox[1]
+    return draw.textsize(text, font=font)
+
+def show_version_splash(display, version=None):
+    from PIL import ImageDraw, ImageFont, Image
+    import time
+
+    img = Image.new('1', (display.width, display.height), 0)  # 0 = black background
+    draw = ImageDraw.Draw(img)
+
+    if version is None:
+        version = get_version()
+
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14)
+    except Exception:
+        font = ImageFont.load_default()
+
+    lines = [
+        "Simple Timer",
+        f"{version}"
+    ]
+    text_h = sum([get_text_size(draw, line, font)[1] for line in lines])
+    y = (display.height - text_h) // 2
+
+    for line in lines:
+        w, h = get_text_size(draw, line, font)
+        x = (display.width - w) // 2
+        draw.text((x, y), line, font=font, fill=255)  # 255=white
+        y += h
+
+    display.hw.Init()
+    display.hw.clear()
+    display.ShowImage(display.getbuffer(img))
+    time.sleep(1.5)
+    display.hw.clear()
+
 class AppController:
     def __init__(self, debug: bool = False, display_hardware=None):
         self.debug = debug
         self.display = Display(hardware=display_hardware) if display_hardware else Display()
+        show_version_splash(self.display)
         self.timer = TimerController()
         self.buttons = ButtonInput()
         self.joystick = JoystickInput()
@@ -33,6 +82,7 @@ class AppController:
         self._last_anim_time = time.monotonic()
         self._pause_spin = False
 
+        # Only clear/init the display now, splash is shown already
         self._init_display()
         self._check_mock_display()
 
@@ -44,16 +94,6 @@ class AppController:
 
     def _init_display(self):
         self.display.hw.Init()
-        self.display.hw.clear()
-        time.sleep(0.2)
-        from PIL import ImageDraw
-        draw = ImageDraw.Draw(self.display.image)
-        draw.rectangle(
-            (10, 10, self.display.width - 10, self.display.height - 10),
-            outline=0, fill=0
-        )
-        self.display.ShowImage(self.display.getbuffer(self.display.image))
-        time.sleep(1)
         self.display.hw.clear()
 
     def _check_mock_display(self):
