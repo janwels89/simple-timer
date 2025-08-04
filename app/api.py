@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 import io
+from PIL import Image
 
 app = FastAPI()
 controller = None  # Will be set externally
@@ -21,7 +22,9 @@ def root():
 @app.get("/display.png")
 def get_display_png():
     buf = io.BytesIO()
-    controller.display.image.save(buf, format="PNG")
+    # Apply the same rotation/flip as in Display.getbuffer
+    img = controller.display.image.transpose(Image.ROTATE_180).transpose(Image.FLIP_LEFT_RIGHT)
+    img.save(buf, format="PNG")
     buf.seek(0)
     return Response(content=buf.read(), media_type="image/png")
 
