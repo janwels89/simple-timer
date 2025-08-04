@@ -28,7 +28,7 @@ rm -rf "$BUILD_DIR"
 mkdir "$BUILD_DIR"
 
 # Copy only app, device, features, main.py, requirements.txt (NO tests)
-cp -r app device fonts features main.py requirements.txt "$BUILD_DIR"/
+cp -r app device static fonts features main.py requirements.txt "$BUILD_DIR"/
 
 
 # Optionally: copy install.sh if you have one for Pi setup

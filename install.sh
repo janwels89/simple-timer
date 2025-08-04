@@ -71,12 +71,13 @@ echo "Copying files to $INSTALL_DIR..."
 sudo rm -rf "$INSTALL_DIR"
 sudo mkdir -p "$INSTALL_DIR"
 
+FILES=(app device features fonts static main.py requirements.txt)
 # Check that all needed files/folders exist before copying
-for f in app device features fonts main.py requirements.txt; do
+for f in "${FILES[@]}"; do
   [ -e "$f" ] || { echo "ERROR: $f not found in $(pwd)! Aborting."; exit 1; }
 done
 
-sudo cp -r app device features fonts main.py requirements.txt "$INSTALL_DIR/"
+sudo cp -r "${FILES[@]}" "$INSTALL_DIR/"
 sudo chown -R "$SERVICE_USER:gpio" "$INSTALL_DIR"
 
 if [ -f /tmp/settings.json.bak ]; then
