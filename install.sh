@@ -29,7 +29,7 @@ usage() {
     exit 1
 }
 
-if [[ "$1" == "--uninstall" ]]; then
+if [[ "${1:-}" == "--uninstall" ]]; then
     echo "Stopping and disabling systemd service..."
     sudo systemctl stop "$SERVICE_NAME" || true
     sudo systemctl disable "$SERVICE_NAME" || true
@@ -43,6 +43,12 @@ if [[ "$1" == "--uninstall" ]]; then
     sudo rm -f /usr/local/bin/apply_wifi_env.sh
     sudo systemctl daemon-reload
 
+    echo "Removing AP/DHCP config..."
+    sudo rm -f /etc/dnsmasq.d/simple-ap.conf
+    sudo sed -i '/^interface wlan0/d' /etc/dhcpcd.conf
+    sudo sed -i '/^static ip_address=192\.168\.4\.1\/24/d' /etc/dhcpcd.conf
+    sudo sed -i '/^nohook wpa_supplicant/d' /etc/dhcpcd.conf
+
     echo "Removing installed files..."
     sudo rm -rf "$INSTALL_DIR"
 
@@ -53,13 +59,13 @@ if [[ "$1" == "--uninstall" ]]; then
 
     echo "Uninstallation complete."
     exit 0
-elif [[ "$1" != "--install" && "$1" != "" ]]; then
+elif [[ "${1:-}" != "--install" && "${1:-}" != "" ]]; then
     usage
 fi
 
 echo "Installing core system dependencies..."
 sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip
+sudo apt-get install -y python3 python3-venv python3-pip hostapd dnsmasq
 
 # 1. Create dedicated user if it doesn't exist
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
@@ -181,15 +187,38 @@ echo "Installing WiFi env update script and systemd service..."
 
 sudo tee /usr/local/bin/apply_wifi_env.sh > /dev/null <<'EOF'
 #!/bin/bash
+set -e
+
 WIFI_ENV="/boot/wifi.env"
 WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
 HOSTAPD_CONF="/etc/hostapd/hostapd.conf"
+DNSMASQ_CONF="/etc/dnsmasq.d/simple-ap.conf"
+DHCPCD_CONF="/etc/dhcpcd.conf"
+
+cleanup_ap() {
+    # Remove static IP from dhcpcd.conf if present
+    sudo sed -i '/^interface wlan0/d' $DHCPCD_CONF
+    sudo sed -i '/^static ip_address=192\.168\.4\.1\/24/d' $DHCPCD_CONF
+    sudo sed -i '/^nohook wpa_supplicant/d' $DHCPCD_CONF
+    sudo rm -f $DNSMASQ_CONF
+}
 
 if [ -f "$WIFI_ENV" ]; then
     MODE=$(grep -E '^[[:space:]]*MODE=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
     SSID=$(grep -E '^[[:space:]]*SSID=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
     PSK=$(grep -E '^[[:space:]]*PSK=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
     if [ "$MODE" = "AP" ]; then
+        echo "Switching to AP mode..."
+
+        cleanup_ap
+
+        # Configure static IP
+        echo "interface wlan0" | sudo tee -a $DHCPCD_CONF
+        echo "static ip_address=192.168.4.1/24" | sudo tee -a $DHCPCD_CONF
+        echo "nohook wpa_supplicant" | sudo tee -a $DHCPCD_CONF
+        sudo systemctl restart dhcpcd
+
+        # Configure hostapd
         cat > "$HOSTAPD_CONF" <<EOW
 interface=wlan0
 driver=nl80211
@@ -206,9 +235,19 @@ wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP
 rsn_pairwise=CCMP
 EOW
-        systemctl stop wpa_supplicant
-        systemctl start hostapd
+
+        # Configure dnsmasq for DHCP
+        cat > "$DNSMASQ_CONF" <<EOD
+interface=wlan0
+dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+EOD
+
+        sudo systemctl stop wpa_supplicant || true
+        sudo systemctl start hostapd
+        sudo systemctl restart dnsmasq
     else
+        echo "Switching to WiFi client mode..."
+        cleanup_ap
         cat > "$WPA_CONF" <<EOW
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
@@ -219,8 +258,9 @@ network={
     psk="$PSK"
 }
 EOW
-        systemctl stop hostapd
-        systemctl start wpa_supplicant
+        sudo systemctl stop hostapd || true
+        sudo systemctl restart wpa_supplicant
+        sudo systemctl restart dhcpcd
     fi
     chmod 600 "$WPA_CONF"
     rm "$WIFI_ENV"
@@ -246,4 +286,4 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable apply-wifi-env.service
 
-echo "Installation complete!"
+echo "Installation complete! Reboot to apply network changes."
