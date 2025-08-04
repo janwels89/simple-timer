@@ -145,16 +145,16 @@ class AppController:
         self.timer.enabled = False
         self.timer.elapsed = 0
         self.timer.show_zero = False
-        self.timer.status = "OPEN"
         self.timer.load_settings()
+        self.timer.status = "OPEN"
         self._pause_spin = True
 
     def _full_reset(self):
         self.timer.enabled = False
         self.timer.elapsed = 0
         self.timer.show_zero = False
+          self.timer.reset_settings()
         self.timer.status = "OPEN"
-        self.timer.reset_settings()
         self._pause_spin = True
 
     def log_timer_state_changes(self):
