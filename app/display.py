@@ -41,7 +41,7 @@ class Display:
         self.image_lock = threading.Lock()
         self._last_update_time = 0
         self._update_min_interval = 0.05
-    if hardware is None:
+        if hardware is None:
             driver = _get_display_driver()
             self.hw = driver()
             logger.debug("Loaded display driver: %s.%s", self.hw.__class__.__module__, self.hw.__class__.__name__)
