@@ -23,7 +23,7 @@ def root():
 def get_display_png():
     buf = io.BytesIO()
     # Apply the same rotation/flip as in Display.getbuffer
-    img = controller.display.image.transpose(Image.ROTATE_180).transpose(Image.FLIP_LEFT_RIGHT)
+    img = controller.display.image
     img.save(buf, format="PNG")
     buf.seek(0)
     return Response(content=buf.read(), media_type="image/png")
