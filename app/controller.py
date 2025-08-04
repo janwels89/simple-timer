@@ -91,41 +91,35 @@ class AppController:
         self.display.ShowImage(self.display.getbuffer(self.display.image))
 
     def _toggle_selection(self, timer_type):
-        if self.selected_timer == timer_type:
-            self.selected_timer = None
-        else:
-            self.selected_timer = timer_type
+        self.selected_timer = None if self.selected_timer == timer_type else timer_type
 
     def _exit_selection(self):
         self.selected_timer = None
 
     def _joystick_adjust(self, direction):
-        if self.selected_timer == "OPEN":
-            self._adjust_time_base("OPEN", direction)
-            self.timer.save_settings()
-        elif self.selected_timer == "CLOSE":
-            self._adjust_time_base("CLOSE", direction)
+        if self.selected_timer in ("OPEN", "CLOSE"):
+            self._adjust_time_base(self.selected_timer, direction)
             self.timer.save_settings()
         elif self.selected_timer == "MODE":
             self.timer.handle_mode_adjustment(direction)
 
     def _adjust_time_base(self, timer_type, direction):
         if timer_type == "OPEN":
-            self.timer._open_time_base = max(1, self.timer._open_time_base + direction)
-            self.timer.randomize_if_needed()
-            logger.info(
-                "%s OPEN base time to %d",
-                "Increased" if direction > 0 else "Decreased",
-                self.timer._open_time_base
-            )
+            self._set_time_base("_open_time_base", direction, "OPEN")
         elif timer_type == "CLOSE":
-            self.timer._close_time_base = max(1, self.timer._close_time_base + direction)
-            self.timer.randomize_if_needed()
-            logger.info(
-                "%s CLOSE base time to %d",
-                "Increased" if direction > 0 else "Decreased",
-                self.timer._close_time_base
-            )
+            self._set_time_base("_close_time_base", direction, "CLOSE")
+
+    def _set_time_base(self, attr, direction, label):
+        old_value = getattr(self.timer, attr)
+        new_value = max(1, old_value + direction)
+        setattr(self.timer, attr, new_value)
+        self.timer.randomize_if_needed()
+        logger.info(
+            "%s %s base time to %d",
+            "Increased" if direction > 0 else "Decreased",
+            label,
+            new_value
+        )
 
     def _cycle_timer_mode(self, direction):
         self.timer.cycle_mode(direction)
@@ -142,19 +136,19 @@ class AppController:
             self._pause_spin = True
 
     def _reset_and_reload(self):
-        self.timer.enabled = False
-        self.timer.elapsed = 0
-        self.timer.show_zero = False
+        self._reset_timer_common()
         self.timer.load_settings()
         self.timer.status = "OPEN"
-        self._pause_spin = True
 
     def _full_reset(self):
+        self._reset_timer_common()
+        self.timer.reset_settings()
+        self.timer.status = "OPEN"
+
+    def _reset_timer_common(self):
         self.timer.enabled = False
         self.timer.elapsed = 0
         self.timer.show_zero = False
-          self.timer.reset_settings()
-        self.timer.status = "OPEN"
         self._pause_spin = True
 
     def log_timer_state_changes(self):
@@ -189,18 +183,13 @@ class AppController:
             if now - self._last_anim_time > 0.2:
                 self._clock_index = (self._clock_index + 1) % len(self._clock_symbols)
                 self._last_anim_time = now
-            self.timer.status_a = self._clock_symbols[self._clock_index]
-        else:
-            self.timer.status_a = self._clock_symbols[self._clock_index]
+        self.timer.status_a = self._clock_symbols[self._clock_index]
         self.timer.status_b = self.timer.get_status_b()
         self._refresh_display()
 
     def _update_output(self):
         if self.timer.status != self._last_output_status:
-            if self.timer.status == "CLOSE":
-                self.output.set_state(1, True)
-            else:
-                self.output.set_state(1, False)
+            self.output.set_state(1, self.timer.status == "CLOSE")
             self._last_output_status = self.timer.status
 
     def _cleanup(self):
