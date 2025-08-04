@@ -151,13 +151,30 @@ class AddModeHandler(BaseModeHandler):
 
     def transition(self):
         if self._reset_next:
+            # Reset everything and start again
             self._accumulated = 0
-            self._first_cycle = True
             self._reset_next = False
             self.timer.status = "OPEN"
             self._update_times()
             self.set_next_time()
             return
+
+        if self.timer.status == "OPEN":
+            if self.timer.open_time <= 0:
+                self._reset_next = True
+            self.timer.status = "CLOSE"
+            self._update_times()
+            self.set_next_time()
+        else:
+            # Only increment if not about to reset
+            if not self._reset_next:
+                self._accumulated += 1
+                self.timer.status = "OPEN"
+                self._update_times()
+                self.set_next_time()
+            else:
+                # If reset is pending, go directly to reset (OPEN)
+                self.transition()
 
         if self.timer.status == "OPEN":
             # On entering CLOSE, increment for this cycle
