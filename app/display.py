@@ -11,6 +11,7 @@ FONT_PATH = os.path.join(BASE_DIR, "fonts", "Font.ttf")
 
 
 def _get_display_driver():
+    """Selects the appropriate display driver based on environment or platform."""
     driver_type = os.getenv("DISPLAY_DRIVER")
     if driver_type == "mock":
         from features.steps.mocks.mock_sh1106 import SH1106
@@ -33,6 +34,8 @@ def _get_display_driver():
 
 
 class Display:
+    """Handles drawing and updating the display image."""
+
     def __init__(self, hardware=None):
         logger.debug("Display.__init__ starting")
         self.image_lock = threading.Lock()
@@ -63,6 +66,7 @@ class Display:
         self._last_state = {}
 
     def _create_background(self):
+        """Draws the static background including the top status bar."""
         self.background = Image.new('1', (self.width, self.height), "WHITE")
         bg_draw = ImageDraw.Draw(self.background)
         status_h = 16
@@ -79,13 +83,16 @@ class Display:
         bg_draw.text((section_c_x, 2), status_c_text, font=self.font_status, fill=0)
 
     def _is_mock(self):
+        """Returns True if using the mock display driver."""
         return "features.steps.mocks" in self.hw.__class__.__module__
 
     def getbuffer(self, image):
+        """Returns the hardware buffer for the (rotated) image."""
         rotated = image.transpose(Image.ROTATE_180)
         return self.hw.getbuffer(rotated)
 
     def ShowImage(self, image):
+        """Displays the image on hardware (and saves if mock)."""
         result = self.hw.ShowImage(image)
         if self._is_mock():
             with self.image_lock:
@@ -93,14 +100,17 @@ class Display:
         return result
 
     def save(self, path):
+        """Saves the current image to disk."""
         with self.image_lock:
             self.image.save(path)
 
     def get_image(self):
+        """Returns a copy of the current image."""
         with self.image_lock:
             return self.image.copy()
 
     def _get_font(self, font_path, size):
+        """Loads a TTF font or falls back to default."""
         try:
             font = ImageFont.truetype(font_path, size)
             logger.info(f"Loaded {font_path} at size {size}")
@@ -110,6 +120,7 @@ class Display:
             return ImageFont.load_default()
 
     def _draw_label_number(self, y, label, number, base=None, fill=0, next_val=None, flash=False):
+        """Draws a label and number (with optional base/next) at the given y position."""
         label_font = self.font_label
         number_font = self.font_number
         small_font = self.font_small
@@ -148,6 +159,7 @@ class Display:
                 self.draw.text((next_x, next_y), next_str, font=small_font, fill=fill)
 
     def _draw_statuses(self):
+        """Draws status fields at the bottom of the display."""
         font = self.font_status
         with self.image_lock:
             if getattr(self, "status_a", ""):
@@ -162,6 +174,7 @@ class Display:
     def _render_status_and_numbers(self, open_num, close_num, status_a, status_b, status_c,
                                    open_base=None, close_base=None, open_next=None, close_next=None,
                                    flash_open=False, flash_close=False):
+        """Updates the display with new status and numbers."""
         self.status_a = status_a
         self.status_b = status_b
         self.status_c = status_c
@@ -173,6 +186,7 @@ class Display:
         self._draw_label_number(42, "CLOSE", close_num, close_base, next_val=close_next, flash=flash_close)
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c, open_base=None, close_base=None):
+        """Draws the layout if state has changed."""
         current_state = {
             'open_num': open_num,
             'close_num': close_num,
@@ -189,6 +203,7 @@ class Display:
         self._render_status_and_numbers(open_num, close_num, status_a, status_b, status_c, open_base, close_base)
 
     def update_values(self, timer, status_a=None, status_b=None, status_c=None):
+        """Updates the display based on timer values and status fields."""
         open_base = timer.open_time_base
         close_base = timer.close_time_base
 
@@ -233,6 +248,20 @@ class Display:
             flash_open=flash_open,
             flash_close=flash_close
         )
+
+    def try_update_values(self, timer, status_a=None, status_b=None, status_c=None):
+        """
+        Attempts to update the display, but skips if a previous update is still running.
+        Prevents artefacts and lag on rapid input.
+        """
+        if not self.image_lock.acquire(blocking=False):
+            logger.warning("Display update skipped: previous update still in progress")
+            return
+        try:
+            self.update_values(timer, status_a, status_b, status_c)
+        finally:
+            self.image_lock.release()
+
 
 if __name__ == "__main__":
     display = Display()
