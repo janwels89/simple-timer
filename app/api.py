@@ -29,7 +29,7 @@ def root():
 def get_display_png():
     logger.debug("Serving /display.png")
     buf = io.BytesIO()
-    img = controller.display.image.transpose(Image.ROTATE_180)
+    img = controller.display.image
     img.save(buf, format="PNG")
     buf.seek(0)
     return Response(content=buf.read(), media_type="image/png")
