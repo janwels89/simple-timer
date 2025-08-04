@@ -139,11 +139,13 @@ class AppController:
         self._reset_timer_common()
         self.timer.load_settings()
         self.timer.status = "OPEN"
+        self._update_output()
 
     def _full_reset(self):
         self._reset_timer_common()
         self.timer.reset_settings()
         self.timer.status = "OPEN"
+        self._update_output()
 
     def _reset_timer_common(self):
         self.timer.enabled = False
