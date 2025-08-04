@@ -168,25 +168,47 @@ if [ -f "$WPA_CONF" ] && [ ! -f "$WIFI_ENV" ]; then
     SSID=$(grep '^\s*ssid=' "$WPA_CONF" | head -n1 | cut -d'"' -f2)
     PSK=$(grep '^\s*psk=' "$WPA_CONF" | head -n1 | cut -d'"' -f2)
     if [ -n "$SSID" ] && [ -n "$PSK" ]; then
-        echo "SSID=$SSID" | sudo tee "$WIFI_ENV" > /dev/null
+        echo "#MODE=AP" | sudo tee "$WIFI_ENV" > /dev/null
+        echo "SSID=$SSID" | sudo tee -a "$WIFI_ENV" > /dev/null
         echo "PSK=$PSK" | sudo tee -a "$WIFI_ENV" > /dev/null
         sudo chmod 600 "$WIFI_ENV"
         echo "Backed up current WiFi settings to $WIFI_ENV"
     fi
 fi
 
-# 8. Install WiFi env update script and systemd service
+# 8. Install WiFi env update script and systemd service (AP/client support)
 echo "Installing WiFi env update script and systemd service..."
 
 sudo tee /usr/local/bin/apply_wifi_env.sh > /dev/null <<'EOF'
 #!/bin/bash
 WIFI_ENV="/boot/wifi.env"
 WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+HOSTAPD_CONF="/etc/hostapd/hostapd.conf"
 
 if [ -f "$WIFI_ENV" ]; then
-    SSID=$(grep '^SSID=' "$WIFI_ENV" | cut -d'=' -f2-)
-    PSK=$(grep '^PSK=' "$WIFI_ENV" | cut -d'=' -f2-)
-    if [ -n "$SSID" ] && [ -n "$PSK" ]; then
+    MODE=$(grep -E '^[[:space:]]*MODE=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
+    SSID=$(grep -E '^[[:space:]]*SSID=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
+    PSK=$(grep -E '^[[:space:]]*PSK=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
+    if [ "$MODE" = "AP" ]; then
+        cat > "$HOSTAPD_CONF" <<EOW
+interface=wlan0
+driver=nl80211
+ssid=$SSID
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=$PSK
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+EOW
+        systemctl stop wpa_supplicant
+        systemctl start hostapd
+    else
         cat > "$WPA_CONF" <<EOW
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
@@ -197,9 +219,11 @@ network={
     psk="$PSK"
 }
 EOW
-        chmod 600 "$WPA_CONF"
-        rm "$WIFI_ENV"
+        systemctl stop hostapd
+        systemctl start wpa_supplicant
     fi
+    chmod 600 "$WPA_CONF"
+    rm "$WIFI_ENV"
 fi
 EOF
 
