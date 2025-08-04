@@ -39,7 +39,9 @@ class Display:
     def __init__(self, hardware=None):
         logger.debug("Display.__init__ starting")
         self.image_lock = threading.Lock()
-        if hardware is None:
+        self._last_update_time = 0
+        self._update_min_interval = 0.05
+    if hardware is None:
             driver = _get_display_driver()
             self.hw = driver()
             logger.debug("Loaded display driver: %s.%s", self.hw.__class__.__module__, self.hw.__class__.__name__)
@@ -93,11 +95,11 @@ class Display:
 
     def ShowImage(self, image):
         """Displays the image on hardware (and saves if mock)."""
-        result = self.hw.ShowImage(image)
-        if self._is_mock():
-            with self.image_lock:
+        with self.image_lock:
+            result = self.hw.ShowImage(image)
+            if self._is_mock():
                 self.image.save("mock_output.png")
-        return result
+            return result
 
     def save(self, path):
         """Saves the current image to disk."""
@@ -251,13 +253,18 @@ class Display:
 
     def try_update_values(self, timer, status_a=None, status_b=None, status_c=None):
         """
-        Attempts to update the display, but skips if a previous update is still running.
-        Prevents artefacts and lag on rapid input.
+        Attempts to update the display, but skips if a previous update is still running
+        or if called too soon after the last update.
         """
+        now = time.monotonic()
+        if now - self._last_update_time < self._update_min_interval:
+            logger.debug("Display update skipped: too soon after last update")
+            return
         if not self.image_lock.acquire(blocking=False):
             logger.warning("Display update skipped: previous update still in progress")
             return
         try:
+            self._last_update_time = now
             self.update_values(timer, status_a, status_b, status_c)
         finally:
             self.image_lock.release()
