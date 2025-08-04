@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 import io
+from fastapi import HTTPException
+
 from PIL import Image
 
 logging.basicConfig(level=logging.DEBUG)
@@ -27,7 +29,7 @@ def root():
 def get_display_png():
     logger.debug("Serving /display.png")
     buf = io.BytesIO()
-    img = controller.display.image
+    img = controller.display.image.transpose(Image.ROTATE_180)
     img.save(buf, format="PNG")
     buf.seek(0)
     return Response(content=buf.read(), media_type="image/png")
@@ -90,7 +92,7 @@ async def key_action(request: Request):
         logger.debug("Key handled")
         return {"status": "ok"}
     logger.debug("Invalid key")
-    return {"status": "invalid key"}, 400
+    raise HTTPException(status_code=400, detail="invalid key")
 
 @app.post("/joystick")
 async def joystick_action(request: Request):
@@ -102,4 +104,4 @@ async def joystick_action(request: Request):
         logger.debug("Joystick handled")
         return {"status": "ok"}
     logger.debug("Invalid direction")
-    return {"status": "invalid direction"}, 400
+    raise HTTPException(status_code=400, detail="invalid direction")

@@ -160,8 +160,8 @@ class Display:
                 self.draw.text((self.width - w - 2, self.height - 12), str(self.status_c), font=font, fill=0)
 
     def _render_status_and_numbers(self, open_num, close_num, status_a, status_b, status_c,
-                                  open_base=None, close_base=None, open_next=None, close_next=None,
-                                  flash_open=False, flash_close=False):
+                                   open_base=None, close_base=None, open_next=None, close_next=None,
+                                   flash_open=False, flash_close=False):
         self.status_a = status_a
         self.status_b = status_b
         self.status_c = status_c
