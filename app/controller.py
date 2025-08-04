@@ -31,7 +31,7 @@ def show_version_splash(display, version=None):
     except Exception:
         font = ImageFont.load_default()
     lines = ["Simple Timer", f"{version}"]
-    text_h = sum([get_text_size(draw, line, font)[1] for line in lines])
+    text_h = sum(get_text_size(draw, line, font)[1] for line in lines)
     y = (display.height - text_h) // 2
     for line in lines:
         w, h = get_text_size(draw, line, font)
@@ -53,12 +53,12 @@ class AppController:
         self.buttons = ButtonInput()
         self.joystick = JoystickInput()
         self.output = Output()
-        self._last_output_status = self.timer.status
         self.running = True
         self.selected_timer = None
         self.key2_was_pressed = False
         self.key2_press_time = None
 
+        self._last_output_status = self.timer.status
         self._last_timer_enabled = self.timer.enabled
         self._last_timer_status = self.timer.status
         self._last_timer_mode = self.timer.mode
