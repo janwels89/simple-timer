@@ -1,5 +1,8 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+IFS=$'\n\t'
+
+trap 'echo "Error on line $LINENO"; exit 1' ERR
 
 # Always run from the script's own directory (so relative paths work!)
 cd "$(dirname "$0")"
@@ -32,6 +35,12 @@ if [[ "$1" == "--uninstall" ]]; then
     sudo systemctl disable "$SERVICE_NAME" || true
     echo "Removing systemd service file..."
     sudo rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+    sudo systemctl daemon-reload
+
+    echo "Removing WiFi env systemd service and script..."
+    sudo systemctl disable apply-wifi-env.service || true
+    sudo rm -f /etc/systemd/system/apply-wifi-env.service
+    sudo rm -f /usr/local/bin/apply_wifi_env.sh
     sudo systemctl daemon-reload
 
     echo "Removing installed files..."
@@ -150,5 +159,67 @@ sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl restart "$SERVICE_NAME"
 echo "Check status with: sudo systemctl status $SERVICE_NAME"
+
+# 7. Backup current WiFi settings to /boot/wifi.env if not already present
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+WIFI_ENV="/boot/wifi.env"
+
+if [ -f "$WPA_CONF" ] && [ ! -f "$WIFI_ENV" ]; then
+    SSID=$(grep '^\s*ssid=' "$WPA_CONF" | head -n1 | cut -d'"' -f2)
+    PSK=$(grep '^\s*psk=' "$WPA_CONF" | head -n1 | cut -d'"' -f2)
+    if [ -n "$SSID" ] && [ -n "$PSK" ]; then
+        echo "SSID=$SSID" | sudo tee "$WIFI_ENV" > /dev/null
+        echo "PSK=$PSK" | sudo tee -a "$WIFI_ENV" > /dev/null
+        sudo chmod 600 "$WIFI_ENV"
+        echo "Backed up current WiFi settings to $WIFI_ENV"
+    fi
+fi
+
+# 8. Install WiFi env update script and systemd service
+echo "Installing WiFi env update script and systemd service..."
+
+sudo tee /usr/local/bin/apply_wifi_env.sh > /dev/null <<'EOF'
+#!/bin/bash
+WIFI_ENV="/boot/wifi.env"
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+
+if [ -f "$WIFI_ENV" ]; then
+    SSID=$(grep '^SSID=' "$WIFI_ENV" | cut -d'=' -f2-)
+    PSK=$(grep '^PSK=' "$WIFI_ENV" | cut -d'=' -f2-)
+    if [ -n "$SSID" ] && [ -n "$PSK" ]; then
+        cat > "$WPA_CONF" <<EOW
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=DE
+
+network={
+    ssid="$SSID"
+    psk="$PSK"
+}
+EOW
+        chmod 600 "$WPA_CONF"
+        rm "$WIFI_ENV"
+    fi
+fi
+EOF
+
+sudo chmod +x /usr/local/bin/apply_wifi_env.sh
+
+sudo tee /etc/systemd/system/apply-wifi-env.service > /dev/null <<EOF
+[Unit]
+Description=Apply WiFi config from /boot/wifi.env at boot
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/apply_wifi_env.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable apply-wifi-env.service
 
 echo "Installation complete!"
