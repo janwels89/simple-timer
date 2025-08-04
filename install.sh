@@ -17,6 +17,8 @@ APT_PYTHON_MAP=(
     "gpiozero:python3-gpiozero"
     "spidev:python3-spidev"
     "smbus:python3-smbus"
+    "fastapi:python3-fastapi"
+    "uvicorn:python3-uvicorn"
 )
 
 usage() {
