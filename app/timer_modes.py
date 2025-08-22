@@ -101,12 +101,13 @@ class RandomModeHandler(BaseModeHandler):
     def adjust_time(self, delta):
         if self.timer.status == "OPEN":
             self.timer._open_time_base = max(1, int(self.timer._open_time_base) + int(delta))
+            self.timer.next_time = self._random_period("CLOSE")
         else:
             self.timer._close_time_base = max(1, int(self.timer._close_time_base) + int(delta))
-        self.set_next_time()
+            self.timer.next_time = self._random_period("OPEN")
 
     def randomize_if_needed(self):
-        self.initialize()
+        self.set_next_time()
 
     def current_remaining_time(self):
         return (self.timer.open_time if self.timer.status == "OPEN" else self.timer.close_time) - self.timer.elapsed
