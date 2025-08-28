@@ -2,7 +2,6 @@ import os
 import platform
 import logging
 import threading
-import time
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
@@ -12,19 +11,19 @@ FONT_PATH = os.path.join(BASE_DIR, "fonts", "Font.ttf")
 
 
 def _get_display_driver():
-    """Select the display driver class based on environment or platform."""
+    """Selects the appropriate display driver based on environment or platform."""
     driver_type = os.getenv("DISPLAY_DRIVER")
     if driver_type == "mock":
         from features.steps.mocks.mock_sh1106 import SH1106
-        logger.debug("Using MOCK display driver (DISPLAY_DRIVER=mock)")
+        logger.debug("Using MOCK display driver (forced by DISPLAY_DRIVER=mock)")
         return SH1106
     elif driver_type == "real":
         from device.SH1106 import SH1106
-        logger.debug("Using REAL display driver (DISPLAY_DRIVER=real)")
+        logger.debug("Using REAL display driver (forced by DISPLAY_DRIVER=real)")
         return SH1106
     else:
         arch = platform.machine().lower()
-        if "arm" in arch or "aarch64" in arch:
+        if any(arm in arch for arm in ("arm", "aarch64")):
             from device.SH1106 import SH1106
             logger.debug("Using REAL display driver (platform is ARM)")
             return SH1106
@@ -42,29 +41,32 @@ class Display:
         self.image_lock = threading.Lock()
         self._last_update_time = 0
         self._update_min_interval = 0.05
-
-        driver = hardware if hardware else _get_display_driver()()
-        self.hw = driver
-        logger.debug("Loaded display driver: %s.%s", self.hw.__class__.__module__, self.hw.__class__.__name__)
-
-        self.width = self.hw.width
-        self.height = self.hw.height
-
-        self.font_number = self._load_font(FONT_PATH, 18)
-        self.font_label = self._load_font(FONT_PATH, 18)
-        self.font_status = self._load_font(FONT_PATH, 10)
-        self.font_small = self._load_font(FONT_PATH, 11)
+        if hardware is None:
+            driver = _get_display_driver()
+            self.hw = driver()
+            logger.debug("Loaded display driver: %s.%s", self.hw.__class__.__module__, self.hw.__class__.__name__)
+        else:
+            self.hw = hardware
+            logger.debug("Using provided hardware: %s.%s", self.hw.__class__.__module__, self.hw.__class__.__name__)
 
         self.status_a = ""
         self.status_b = ""
         self.status_c = ""
-        self._last_state = {}
+        self.width = self.hw.width
+        self.height = self.hw.height
 
+        self.font_number = self._get_font(FONT_PATH, 18)
+        self.font_label = self._get_font(FONT_PATH, 18)
+        self.font_status = self._get_font(FONT_PATH, 10)
+        self.font_small = self._get_font(FONT_PATH, 11)
         self._create_background()
         with self.image_lock:
-            self.image = Image.new('1', (self.width, self.height), "WHITE")
+            self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
             self.draw = ImageDraw.Draw(self.image)
+            self.fullimage = self.image.copy()
         logger.debug("Display.__init__ complete")
+
+        self._last_state = {}
 
     def _create_background(self):
         """Draws the static background including the top status bar."""
@@ -72,16 +74,13 @@ class Display:
         bg_draw = ImageDraw.Draw(self.background)
         status_h = 16
         bg_draw.rectangle((0, 0, self.width - 1, status_h - 1), outline=0, fill=100)
-
         section_w = self.width // 3
         bg_draw.text((2, 2), self.status_a, font=self.font_status, fill=0)
-
         status_b_text = self.status_b
         bbox_b = self.font_status.getbbox(status_b_text)
         status_b_w = bbox_b[2] - bbox_b[0]
         status_b_x = section_w + (section_w - status_b_w) // 2
         bg_draw.text((status_b_x, 2), status_b_text, font=self.font_status, fill=0)
-
         status_c_text = self.status_c
         section_c_x = 2 * section_w + 2
         bg_draw.text((section_c_x, 2), status_c_text, font=self.font_status, fill=0)
@@ -113,7 +112,7 @@ class Display:
         with self.image_lock:
             return self.image.copy()
 
-    def _load_font(self, font_path, size):
+    def _get_font(self, font_path, size):
         """Loads a TTF font or falls back to default."""
         try:
             font = ImageFont.truetype(font_path, size)
@@ -125,24 +124,25 @@ class Display:
 
     def _draw_label_number(self, y, label, number, base=None, fill=0, next_val=None, flash=False):
         """Draws a label and number (with optional base/next) at the given y position."""
-        label_x = 5
         label_font = self.font_label
         number_font = self.font_number
         small_font = self.font_small
 
+        label_x = 5
+        label_y = y
+        number_str = str(number)
+        if flash:
+            number_str = "0"
         label_bbox = label_font.getbbox(label)
         label_h = label_bbox[3] - label_bbox[1]
-
-        number_str = "0" if flash else str(number)
         number_bbox = number_font.getbbox(number_str)
         number_w = number_bbox[2] - number_bbox[0]
         number_h = number_bbox[3] - number_bbox[1]
-
         num_x = self.width - number_w - 30
         num_y = y + max(0, (label_h - number_h) // 2) + 2
 
         with self.image_lock:
-            self.draw.text((label_x, y), label, font=label_font, fill=fill)
+            self.draw.text((label_x, label_y), label, font=label_font, fill=fill)
             self.draw.text((num_x, num_y), number_str, font=number_font, fill=fill)
 
             next_x = num_x + number_w + 6
@@ -165,12 +165,12 @@ class Display:
         """Draws status fields at the bottom of the display."""
         font = self.font_status
         with self.image_lock:
-            if self.status_a:
+            if getattr(self, "status_a", ""):
                 self.draw.text((2, self.height - 12), str(self.status_a), font=font, fill=0)
-            if self.status_b:
+            if getattr(self, "status_b", ""):
                 w, _ = self.draw.textsize(str(self.status_b), font=font)
                 self.draw.text((self.width // 2 - w // 2, self.height - 12), str(self.status_b), font=font, fill=0)
-            if self.status_c:
+            if getattr(self, "status_c", ""):
                 w, _ = self.draw.textsize(str(self.status_c), font=font)
                 self.draw.text((self.width - w - 2, self.height - 12), str(self.status_c), font=font, fill=0)
 
@@ -187,6 +187,7 @@ class Display:
             self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(18, "OPEN", open_num, open_base, next_val=open_next, flash=flash_open)
         self._draw_label_number(42, "CLOSE", close_num, close_base, next_val=close_next, flash=flash_close)
+        self.fullimage = self.image
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c, open_base=None, close_base=None):
         """Draws the layout if state has changed."""
@@ -216,17 +217,11 @@ class Display:
         if flash_open:
             open_remaining = 0
         else:
-            if getattr(timer, "status", "OPEN") == "OPEN":
-                open_remaining = max(0, int(round(getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0))))
-            else:
-                open_remaining = getattr(timer, "next_time", getattr(timer, "open_time", 0))
+            open_remaining = max(0, int(round(getattr(timer, "open_time", 0) - getattr(timer, "elapsed", 0)))) if getattr(timer, "status", "OPEN") == "OPEN" else getattr(timer, "next_time", getattr(timer, "open_time", 0))
         if flash_close:
             close_remaining = 0
         else:
-            if getattr(timer, "status", "OPEN") == "OPEN":
-                close_remaining = getattr(timer, "next_time", getattr(timer, "close_time", 0))
-            else:
-                close_remaining = max(0, int(round(getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0))))
+            close_remaining = getattr(timer, "next_time", getattr(timer, "close_time", 0)) if getattr(timer, "status", "OPEN") == "OPEN" else max(0, int(round(getattr(timer, "close_time", 0) - getattr(timer, "elapsed", 0))))
 
         curr_a = status_a if status_a is not None else getattr(timer, "status_a", "")
         curr_b = status_b if status_b is not None else getattr(timer, "status_b", "")

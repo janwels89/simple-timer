@@ -17,7 +17,6 @@ class BaseModeHandler:
         raise NotImplementedError
 
     def adjust(self, direction):
-        """Override for up/down joystick input; only needed in add/addsub modes."""
         pass
 
     def current_remaining_time(self):
@@ -118,8 +117,8 @@ class RandomModeHandler(BaseModeHandler):
 
 class AddModeHandler(BaseModeHandler):
     """
-    'add' mode: Each time the CLOSE cycle occurs, add increment to the base close time.
-    Increment is only applied after the first cycle.
+    'add' mode: Each time the CLOSE cycle occurs, a stable increment is added to the base close time,
+    but the increment is only applied after the first cycle.
     """
     def __init__(self, timer):
         super().__init__(timer)
@@ -155,25 +154,13 @@ class AddModeHandler(BaseModeHandler):
             self.set_next_time()
         else:
             if not self._reset_next:
-                self._accumulated += 1
+                self._accumulated += self.timer.add_increment
                 self.timer.status = "OPEN"
                 self._update_times()
                 self.set_next_time()
             else:
                 self.transition()
 
-        if self.timer.status == "OPEN":
-            if not self._first_cycle:
-                self._accumulated += self.timer.add_increment
-            else:
-                self._first_cycle = False
-            self.timer.status = "CLOSE"
-            self._update_times()
-            self.set_next_time()
-        else:
-            self.timer.status = "OPEN"
-            self._update_times()
-            self.set_next_time()
 
     def set_next_time(self):
         if self._reset_next and self.timer.status == "CLOSE":
@@ -210,8 +197,9 @@ class AddModeHandler(BaseModeHandler):
 
 class AddSubModeHandler(BaseModeHandler):
     """
-    Each CLOSE cycle, subtract increment from open and add to close.
-    If open_time would be zero or negative, immediately reset to base and start with OPEN.
+    AddSubModeHandler ('no negative open, skip long close, always in sync'):
+    - Each CLOSE cycle, subtract increment from open and add to close.
+    - If open_time would be zero or negative, immediately reset to base and start with OPEN (no CLOSE with negative open).
     """
     def __init__(self, timer):
         super().__init__(timer)
@@ -267,7 +255,6 @@ class AddSubModeHandler(BaseModeHandler):
         self.set_next_time()
 
     def current_remaining_time(self):
-        base = self.timer.open_time if self.timer.status == "OPEN" else self.timer.close_time
         if self.timer.status == "OPEN":
             return max(0, base - self.timer.elapsed)
         else:
@@ -281,3 +268,4 @@ class AddSubModeHandler(BaseModeHandler):
 
     def get_status_b(self):
         return f"inc: {self.timer.add_increment}"
+
