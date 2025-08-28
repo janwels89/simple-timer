@@ -256,9 +256,9 @@ class AddSubModeHandler(BaseModeHandler):
 
     def current_remaining_time(self):
         if self.timer.status == "OPEN":
-            return max(0, base - self.timer.elapsed)
+            return max(0, self.timer.open_time - self.timer.elapsed)
         else:
-            return base - self.timer.elapsed
+            return self.timer.close_time - self.timer.elapsed
 
     def randomize_if_needed(self):
         self.initialize()
