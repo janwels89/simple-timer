@@ -17,7 +17,6 @@ class BaseModeHandler:
         raise NotImplementedError
 
     def adjust(self, direction):
-        """Handle up/down joystick input for this mode. Override in add/addsub."""
         pass
 
     def current_remaining_time(self):
@@ -63,16 +62,10 @@ class LoopModeHandler(BaseModeHandler):
         self.initialize()
 
     def current_remaining_time(self):
-        if self.timer.status == "OPEN":
-            return self.timer.open_time - self.timer.elapsed
-        else:
-            return self.timer.close_time - self.timer.elapsed
+        return (self.timer.open_time if self.timer.status == "OPEN" else self.timer.close_time) - self.timer.elapsed
 
     def get_increment(self):
         return 1
-
-    def get_status_b(self):
-        return ""
 
 
 class RandomModeHandler(BaseModeHandler):
@@ -107,24 +100,19 @@ class RandomModeHandler(BaseModeHandler):
     def adjust_time(self, delta):
         if self.timer.status == "OPEN":
             self.timer._open_time_base = max(1, int(self.timer._open_time_base) + int(delta))
+            self.timer.next_time = self._random_period("CLOSE")
         else:
             self.timer._close_time_base = max(1, int(self.timer._close_time_base) + int(delta))
-        self.set_next_time()
+            self.timer.next_time = self._random_period("OPEN")
 
     def randomize_if_needed(self):
-        self.initialize()
+        self.set_next_time()
 
     def current_remaining_time(self):
-        if self.timer.status == "OPEN":
-            return self.timer.open_time - self.timer.elapsed
-        else:
-            return self.timer.close_time - self.timer.elapsed
+        return (self.timer.open_time if self.timer.status == "OPEN" else self.timer.close_time) - self.timer.elapsed
 
     def get_increment(self):
         return 1
-
-    def get_status_b(self):
-        return ""
 
 
 class AddModeHandler(BaseModeHandler):
@@ -151,7 +139,6 @@ class AddModeHandler(BaseModeHandler):
 
     def transition(self):
         if self._reset_next:
-            # Reset everything and start again
             self._accumulated = 0
             self._reset_next = False
             self.timer.status = "OPEN"
@@ -166,35 +153,19 @@ class AddModeHandler(BaseModeHandler):
             self._update_times()
             self.set_next_time()
         else:
-            # Only increment if not about to reset
             if not self._reset_next:
-                self._accumulated += 1
+                self._accumulated += self.timer.add_increment
                 self.timer.status = "OPEN"
                 self._update_times()
                 self.set_next_time()
             else:
-                # If reset is pending, go directly to reset (OPEN)
                 self.transition()
 
-        if self.timer.status == "OPEN":
-            # On entering CLOSE, increment for this cycle
-            if not self._first_cycle:
-                self._accumulated += self.timer.add_increment
-            else:
-                self._first_cycle = False
-            self.timer.status = "CLOSE"
-            self._update_times()
-            self.set_next_time()
-        else:
-            self.timer.status = "OPEN"
-            self._update_times()
-            self.set_next_time()
 
     def set_next_time(self):
         if self._reset_next and self.timer.status == "CLOSE":
             self.timer.next_time = self.timer.open_time_base
         elif self.timer.status == "OPEN":
-            # Next is CLOSE, show what the next close time will be if increment is applied
             next_accum = self._accumulated + (0 if self._first_cycle else self.timer.add_increment)
             self.timer.next_time = self.timer.close_time_base + next_accum
         else:
@@ -211,14 +182,8 @@ class AddModeHandler(BaseModeHandler):
         self.timer.add_increment = max(1, self.timer.add_increment + direction)
         self.set_next_time()
 
-    def update_increment(self):
-        self.set_next_time()
-
     def current_remaining_time(self):
-        if self.timer.status == "OPEN":
-            return self.timer.open_time - self.timer.elapsed
-        else:
-            return self.timer.close_time - self.timer.elapsed
+        return (self.timer.open_time if self.timer.status == "OPEN" else self.timer.close_time) - self.timer.elapsed
 
     def randomize_if_needed(self):
         self.initialize()
@@ -255,11 +220,9 @@ class AddSubModeHandler(BaseModeHandler):
         self.timer.close_time = self.timer._close_time_base + self._accumulated * self.timer.add_increment
 
     def transition(self):
-        # If about to enter OPEN with open_time <= 0, reset immediately
         if self.timer.status == "OPEN":
-            # About to finish an OPEN phase, check if next open would be negative
             next_open = self.timer._open_time_base - (self._accumulated + 1) * self.timer.add_increment
-            if next_open < 1:  # (or <= 0 if you want zero to trigger reset)
+            if next_open < 1:
                 self._accumulated = 0
                 self._reset_to_base()
                 self.timer.status = "OPEN"
@@ -276,10 +239,8 @@ class AddSubModeHandler(BaseModeHandler):
 
     def set_next_time(self):
         if self.timer.status == "OPEN":
-            # next CLOSE
             self.timer.next_time = self.timer._close_time_base + self._accumulated * self.timer.add_increment
         else:
-            # next OPEN
             self.timer.next_time = self.timer._open_time_base - (self._accumulated + 1) * self.timer.add_increment
 
     def adjust_time(self, delta):
@@ -293,14 +254,11 @@ class AddSubModeHandler(BaseModeHandler):
         self.timer.add_increment = max(1, self.timer.add_increment + direction)
         self.set_next_time()
 
-    def update_increment(self):
-        self.set_next_time()
-
     def current_remaining_time(self):
         if self.timer.status == "OPEN":
-            return max(0, self.timer.open_time - self.timer.elapsed)
+            return max(0, base - self.timer.elapsed)
         else:
-            return self.timer.close_time - self.timer.elapsed
+            return base - self.timer.elapsed
 
     def randomize_if_needed(self):
         self.initialize()
@@ -310,3 +268,4 @@ class AddSubModeHandler(BaseModeHandler):
 
     def get_status_b(self):
         return f"inc: {self.timer.add_increment}"
+

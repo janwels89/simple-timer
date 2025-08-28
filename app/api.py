@@ -29,7 +29,7 @@ def root():
 def get_display_png():
     logger.debug("Serving /display.png")
     buf = io.BytesIO()
-    img = controller.display.image
+    img = controller.display.fullimage
     img.save(buf, format="PNG")
     buf.seek(0)
     return Response(content=buf.read(), media_type="image/png")
@@ -105,3 +105,4 @@ async def joystick_action(request: Request):
         return {"status": "ok"}
     logger.debug("Invalid direction")
     raise HTTPException(status_code=400, detail="invalid direction")
+

@@ -27,17 +27,19 @@ class TimerController:
         self.elapsed = 0
         self.last_update_time = time.monotonic()
         self.show_zero = False
-        self.zero_status = None  # Indicates which status's zero should be shown ("OPEN" or "CLOSE")
+        self.zero_status = None  # "OPEN" or "CLOSE"
         self._last_state = {}
         self._open_time_base = self.open_time
         self._close_time_base = self.close_time
         self.next_time = None
-        self.add_increment = 1  # for add/addsub mode
+        self.add_increment = 1  # For add/addsub modes
 
         self.set_mode(self.mode)
         self.load_settings()
         logger.debug(
-            f"TimerController initialized: open={self.open_time}, close={self.close_time}, status={self.status}, mode={self.mode}")
+            "TimerController initialized: open=%s, close=%s, status=%s, mode=%s",
+            self.open_time, self.close_time, self.status, self.mode
+        )
 
     def set_mode(self, mode):
         self.mode = mode
@@ -48,28 +50,27 @@ class TimerController:
         self.mode_handler.initialize()
 
     def cycle_mode(self, direction):
-        # Called by AppController for left/right mode cycling
-        mode_list = list(self.MODE_HANDLERS.keys())
+        """Cycle to the next/previous mode."""
+        modes = list(self.MODE_HANDLERS.keys())
         try:
-            current_index = mode_list.index(self.mode)
+            idx = modes.index(self.mode)
         except ValueError:
-            current_index = 0
-        new_index = (current_index + direction) % len(mode_list)
-        new_mode = mode_list[new_index]
+            idx = 0
+        new_mode = modes[(idx + direction) % len(modes)]
         self.set_mode(new_mode)
 
     def handle_mode_adjustment(self, direction):
         """Delegate up/down adjustment for the current mode to the mode handler."""
-        if hasattr(self.mode_handler, "adjust"):
-            self.mode_handler.adjust(direction)
+        adjust = getattr(self.mode_handler, "adjust", None)
+        if callable(adjust):
+            adjust(direction)
         else:
-            logger.debug(f"Mode {self.mode} does not support adjustment.")
+            logger.debug("Mode %s does not support adjustment.", self.mode)
 
     def get_status_b(self):
         """Get the mode-specific status_b string for the display."""
-        if hasattr(self.mode_handler, "get_status_b"):
-            return self.mode_handler.get_status_b()
-        return ""
+        get_status = getattr(self.mode_handler, "get_status_b", None)
+        return get_status() if callable(get_status) else ""
 
     def _log_state_change(self):
         state = {
@@ -92,7 +93,9 @@ class TimerController:
 
     def _debug_random(self, msg):
         logger.debug(
-            f"[RANDOM] {msg} | open={self.open_time}, close={self.close_time}, next_time={self.next_time}, base_open={self._open_time_base}, base_close={self._close_time_base}, add_increment={self.add_increment}")
+            "[RANDOM] %s | open=%s, close=%s, next_time=%s, base_open=%s, base_close=%s, add_increment=%s",
+            msg, self.open_time, self.close_time, self.next_time, self._open_time_base, self._close_time_base, self.add_increment
+        )
 
     def update(self):
         if not self.enabled:
@@ -106,12 +109,12 @@ class TimerController:
         while time_left > 0:
             if self.show_zero:
                 self._debug_random(
-                    f"Transition ({self.status}→{'CLOSE' if self.status == 'OPEN' else 'OPEN'}) - BEFORE")
+                    f"Transition ({self.status}→{'CLOSE' if self.status == 'OPEN' else 'OPEN'}) - BEFORE"
+                )
                 self.show_zero = False
                 self.zero_status = None
                 self.elapsed = 0
                 self.mode_handler.transition()
-                # self.status = "OPEN"  # <-- REMOVED: let the mode handler set status
                 self._debug_random(f"Transition ({self.status}) - AFTER")
                 self._log_state_change()
                 break
@@ -122,7 +125,7 @@ class TimerController:
                     self.elapsed += remaining
                     time_left -= remaining
                     self.show_zero = True
-                    self.zero_status = self.status  # Indicate which status zero is for
+                    self.zero_status = self.status
                     break
                 else:
                     self.elapsed += time_left
@@ -160,7 +163,7 @@ class TimerController:
                     self.add_increment = int(data.get("add_increment", 1))
                 loaded = True
             except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-                logger.error(f"Failed to load timer settings, using defaults. Error: {e}")
+                logger.error("Failed to load timer settings, using defaults. Error: %s", e)
                 self.open_time = self.DEFAULT_OPEN_TIME
                 self.close_time = self.DEFAULT_CLOSE_TIME
                 self.add_increment = 1
@@ -190,7 +193,7 @@ class TimerController:
         self.mode_handler.initialize()
         self.save_settings()
         logger.info("Timer settings reset to defaults.")
-        self.status = "OPEN"  # Ensure status is OPEN after reset
+        self.status = "OPEN"
         self._log_state_change()
 
     @property

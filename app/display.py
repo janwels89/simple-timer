@@ -63,6 +63,7 @@ class Display:
         with self.image_lock:
             self.image = Image.new('1', (self.hw.width, self.hw.height), "WHITE")
             self.draw = ImageDraw.Draw(self.image)
+            self.fullimage = self.image.copy()
         logger.debug("Display.__init__ complete")
 
         self._last_state = {}
@@ -186,6 +187,7 @@ class Display:
             self.draw = ImageDraw.Draw(self.image)
         self._draw_label_number(18, "OPEN", open_num, open_base, next_val=open_next, flash=flash_open)
         self._draw_label_number(42, "CLOSE", close_num, close_base, next_val=close_next, flash=flash_close)
+        self.fullimage = self.image
 
     def draw_layout(self, open_num, close_num, status_a, status_b, status_c, open_base=None, close_base=None):
         """Draws the layout if state has changed."""

@@ -132,8 +132,10 @@ class AppController:
             logger.info("Timer resumed (short press).")
             self._pause_spin = False
         else:
+            self.timer.status = "OPEN"
             logger.info("Timer paused (short press).")
             self._pause_spin = True
+            self._update_output()
 
     def _reset_and_reload(self):
         self._reset_timer_common()
