@@ -1,4 +1,8 @@
 import random
+import socket
+import fcntl
+import struct
+
 
 class BaseModeHandler:
     def __init__(self, timer):
@@ -66,6 +70,21 @@ class LoopModeHandler(BaseModeHandler):
 
     def get_increment(self):
         return 1
+
+    def _get_ip_address(self, ifname="wlan0"):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            return socket.inet_ntoa(fcntl.ioctl(
+                s.fileno(),
+                0x8915,  # SIOCGIFADDR
+                struct.pack('256s', ifname[:15].encode('utf-8'))
+            )[20:24])
+        except Exception:
+            return "No IP"
+
+    def get_status_b(self):
+        ip = self._get_ip_address()
+        return f"{ip}"
 
 
 class RandomModeHandler(BaseModeHandler):

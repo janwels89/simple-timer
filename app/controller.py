@@ -189,6 +189,7 @@ class AppController:
                 self._last_anim_time = now
         self.timer.status_a = self._clock_symbols[self._clock_index]
         self.timer.status_b = self.timer.get_status_b()
+        self.timer.status_c = "" if self.timer.mode == "loop" else self.timer.mode
         self._refresh_display()
 
     def _update_output(self):

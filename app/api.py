@@ -105,4 +105,3 @@ async def joystick_action(request: Request):
         return {"status": "ok"}
     logger.debug("Invalid direction")
     raise HTTPException(status_code=400, detail="invalid direction")
-
