@@ -29,3 +29,17 @@ wheels/
 settings.json
 .coverage
 version.py
+
+# C++ build artifacts
+cpp/build/
+cpp/external/
+*.o
+*.so
+*.a
+simple-timer
+simple-timer-tests
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+_deps/

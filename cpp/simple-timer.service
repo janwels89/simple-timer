@@ -1,0 +1,16 @@
+[Unit]
+Description=Simple Timer C++ Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/simple-timer/cpp/build
+ExecStart=/home/pi/simple-timer/cpp/build/simple-timer
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
