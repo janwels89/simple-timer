@@ -1,73 +1,120 @@
 # Simple Timer
 
+## Overview
+
+Simple Timer is a multi-mode timer application designed for Raspberry Pi Zero W2 with support for hardware display, buttons, joystick, and relay outputs. Available in both Python and C++ implementations.
+
+## Implementations
+
+### C++ Port (Recommended for Production)
+See [cpp/README.md](cpp/README.md) for the complete C++ implementation with:
+- Native performance and lower memory usage
+- libgpiod-based GPIO control
+- Desktop mocks for development
+- Full API compatibility with Python version
+- systemd service integration
+
+### Python Version (Reference)
+Original Python implementation in `python-backup/` directory.
+
 ## Features
 
 - **Multi-Mode Timer**: Supports loop, random, add, and add/subtract timer modes.
-- **HTTP & HTTPS REST API**: Runs API servers in parallel (port 8000 for HTTP, 8443 for HTTPS).
-- **Persistent Settings**: Timer settings are saved and loaded from `settings.json`.
-- **Threaded Operation**: Runs API endpoints and timer logic concurrently.
+- **HTTP REST API**: Web interface and API endpoints (port 8000).
+- **Persistent Settings**: Timer settings saved to `settings.json`.
+- **Hardware Integration**: SH1106 OLED display, buttons, joystick, relay outputs.
 - **Extensible**: Modular design with separate mode handlers and controller logic.
 
 ## Project Structure
 
+### C++ Implementation
 ```
-simple-timer/
+cpp/
+├── src/
+│   ├── device/         # GPIO and SH1106 drivers
+│   ├── timer/          # Timer controller and modes
+│   ├── display/        # Display rendering and PNG generation
+│   ├── input/          # Button and joystick handling
+│   ├── output/         # Relay control
+│   ├── http/           # HTTP API server
+│   ├── controller/     # Main application controller
+│   ├── utils/          # Platform utilities and logging
+│   └── main.cpp        # Application entry point
+├── include/            # Header files
+├── mocks/              # Desktop mock implementations
+├── tests/              # Unit tests
+├── CMakeLists.txt      # Build configuration
+├── README.md           # C++ port documentation
+└── install.sh          # Installation script
+
+### Python Reference Implementation (in python-backup/)
+```
+python-backup/
 ├── app/
 │   ├── api.py             # FastAPI/uvicorn API interface
 │   ├── controller.py      # AppController for hardware/display integration
-│   ├── display.py         #  display controller
+│   ├── display.py         # Display controller
 │   ├── input.py           # InputController for hardware buttons
 │   ├── output.py          # OutputController for hardware outputs
 │   ├── timer.py           # TimerController managing timer logic
 │   ├── timer_modes.py     # Loop, Random, Add, AddSub handlers
-│   └── utils.py           # is_x64, is_debug, run_with_thinkerer utilities
-├── device/                # hardware integration (e.g., SH1106 display, GPIO)  
-│   ├── sh1106.py          # SH1106 display driver
-│   └── gpio.py            # GPIO control for hardware buttons
-├── main.py                # Entry point orchestrating controllers and APIs
-├── requirements.txt
-├── features/             # behave tests for different timer modes
-├── fonts/                 # Font files for display rendering
-├── static/                # Static HTML files for Webinterface
-├── tests/                # Unit tests for the application
+│   └── utils.py           # Platform utilities
+├── device/                # Hardware integration
+│   └── SH1106.py          # SH1106 display driver
+├── main.py                # Entry point
+└── requirements.txt
 
-```
+## Quick Start
 
-## Quickstart
+### C++ Version (Recommended)
 
-### 1. Clone and Install
-
+#### On Raspberry Pi:
 ```bash
-git clone https://github.com/janwels89/simple-timer.git
-cd simple-timer
-pip install -r requirements.txt
+cd cpp
+./install.sh
 ```
 
-### 2. Run the Timer Service
+This will build and install the C++ version as a systemd service.
 
-Start the main service (which launches both HTTP and HTTPS APIs):
-
+#### On Desktop (for development):
 ```bash
-python main.py
+cd cpp
+mkdir build && cd build
+cmake .. -DBUILD_DESKTOP_MOCKS=ON
+make
+./simple-timer --debug
 ```
 
-- HTTP API available at: [http://localhost:8000](http://localhost:8000)
-- HTTPS API available at: [https://localhost:8443](https://localhost:8443) (requires `key.pem` and `cert.pem` in the root directory)
+Access the web interface at [http://localhost:8000](http://localhost:8000)
 
-### 3. API Endpoints
+For detailed C++ documentation, see [cpp/README.md](cpp/README.md)
 
-See the API documentation (typically FastAPI/OpenAPI) at `/docs` once the server is running.
+### Python Version (Reference)
 
-### 4. Modes
+See `python-backup/` directory for the original Python implementation.
+
+## Timer Modes
 
 - **loop**: Alternates between open/close at fixed intervals.
 - **random**: Open/close times are randomized within configured ranges.
 - **add**: Each cycle adds to closed time
 - **addsub**: Adds and subtracts increments from open to close time
 
-You can cycle and adjust modes via the API or the hardware interface (if connected).
+You can cycle and adjust modes via the API or hardware interface (buttons/joystick).
 
-### 5. Settings Persistence
+## API Endpoints
+
+- `GET /` - Web interface
+- `GET /display.png` - Current display as PNG
+- `GET /status` - Timer status (JSON)
+- `POST /pause_resume` - Toggle pause/resume
+- `POST /reset` - Reset and reload settings
+- `POST /full_reset` - Full reset to defaults
+- `POST /mode` - Change mode (body: `{"direction": 1}`)
+- `POST /key` - Simulate key press (body: `{"key": 1|2|3}`)
+- `POST /joystick` - Simulate joystick (body: `{"direction": "up|down|left|right|press"}`)
+
+## Settings Persistence
 
 Timer settings (open/close times, increments) are auto-saved to `settings.json` and reloaded on startup.
 

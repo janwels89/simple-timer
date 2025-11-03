@@ -1,0 +1,9 @@
+behave
+pillow
+RPi.GPIO
+numpy
+spidev
+gpiozero
+smbus
+fastapi
+uvicorn
