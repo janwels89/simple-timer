@@ -1,7 +1,9 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
-# Always run from the script's own directory (so relative paths work!)
+trap 'echo "Error on line $LINENO"; exit 1' ERR
+
 cd "$(dirname "$0")"
 
 SERVICE_USER="simpletimer"
@@ -10,8 +12,9 @@ INSTALL_DIR="/opt/simple-timer"
 PYTHON_BIN="/usr/bin/python3"
 VENV_DIR="$INSTALL_DIR/venv"
 ENTRY="main.py"
+SYSTEMD_DIR="/etc/systemd/system"
+BIN_DIR="/usr/local/bin"
 
-# List of python packages provided by apt (lowercase, no version spec)
 APT_PYTHON_MAP=(
     "rpi.gpio:python3-rpi.gpio"
     "gpiozero:python3-gpiozero"
@@ -21,18 +24,60 @@ APT_PYTHON_MAP=(
     "uvicorn:python3-uvicorn"
 )
 
+error_exit() {
+    echo "ERROR: $1"
+    exit 1
+}
+
 usage() {
     echo "Usage: $0 [--install|--uninstall]"
     exit 1
 }
 
-if [[ "$1" == "--uninstall" ]]; then
-    echo "Stopping and disabling systemd service..."
-    sudo systemctl stop "$SERVICE_NAME" || true
-    sudo systemctl disable "$SERVICE_NAME" || true
-    echo "Removing systemd service file..."
-    sudo rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+remove_systemd_service() {
+    local svc="$1"
+    sudo systemctl stop "$svc" || true
+    sudo systemctl disable "$svc" || true
+    sudo rm -f "$SYSTEMD_DIR/$svc.service"
     sudo systemctl daemon-reload
+}
+
+remove_wifi_ap_config() {
+    sudo rm -f /etc/dnsmasq.d/simple-ap.conf
+    sudo sed -i '/^interface wlan0/d' /etc/dhcpcd.conf
+    sudo sed -i '/^static ip_address=192\.168\.4\.1\/24/d' /etc/dhcpcd.conf
+    sudo sed -i '/^nohook wpa_supplicant/d' /etc/dhcpcd.conf
+}
+
+check_and_copy_files() {
+    local files=("$@")
+    for f in "${files[@]}"; do
+        [ -e "$f" ] || error_exit "$f not found in $(pwd)! Aborting."
+    done
+    sudo cp -r "${files[@]}" "$INSTALL_DIR/"
+    sudo chown -R "$SERVICE_USER:gpio" "$INSTALL_DIR"
+}
+
+backup_and_restore_settings() {
+    if [ -f "$INSTALL_DIR/settings.json" ]; then
+        sudo mv "$INSTALL_DIR/settings.json" /tmp/settings.json.bak
+    fi
+    if [ -f /tmp/settings.json.bak ]; then
+        sudo mv /tmp/settings.json.bak "$INSTALL_DIR/settings.json"
+        sudo chown "$SERVICE_USER:gpio" "$INSTALL_DIR/settings.json"
+    fi
+}
+
+if [[ "${1:-}" == "--uninstall" ]]; then
+    echo "Stopping and disabling systemd service..."
+    remove_systemd_service "$SERVICE_NAME"
+
+    echo "Removing WiFi env systemd service and script..."
+    remove_systemd_service "apply-wifi-env"
+    sudo rm -f "$BIN_DIR/apply_wifi_env.sh"
+
+    echo "Removing AP/DHCP config..."
+    remove_wifi_ap_config
 
     echo "Removing installed files..."
     sudo rm -rf "$INSTALL_DIR"
@@ -44,48 +89,30 @@ if [[ "$1" == "--uninstall" ]]; then
 
     echo "Uninstallation complete."
     exit 0
-elif [[ "$1" != "--install" && "$1" != "" ]]; then
+elif [[ "${1:-}" != "--install" && "${1:-}" != "" ]]; then
     usage
 fi
 
 echo "Installing core system dependencies..."
 sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip
+sudo apt-get install -y python3 python3-venv python3-pip hostapd dnsmasq
 
-# 1. Create dedicated user if it doesn't exist
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
     echo "Creating user $SERVICE_USER..."
     sudo useradd -r -s /bin/false -m "$SERVICE_USER"
 fi
 
-# 2. Add user to gpio, spi, and i2c groups
 echo "Adding $SERVICE_USER to gpio,spi,i2c groups..."
 sudo usermod -aG gpio,spi,i2c "$SERVICE_USER"
 
-# 3. Copy files and preserve settings.json if it exists
-if [ -f "$INSTALL_DIR/settings.json" ]; then
-    sudo mv "$INSTALL_DIR/settings.json" /tmp/settings.json.bak
-fi
-
+FILES=(app device features fonts static main.py requirements.txt)
+backup_and_restore_settings
 echo "Copying files to $INSTALL_DIR..."
 sudo rm -rf "$INSTALL_DIR"
 sudo mkdir -p "$INSTALL_DIR"
+check_and_copy_files "${FILES[@]}"
+backup_and_restore_settings
 
-FILES=(app device features fonts static main.py requirements.txt)
-# Check that all needed files/folders exist before copying
-for f in "${FILES[@]}"; do
-  [ -e "$f" ] || { echo "ERROR: $f not found in $(pwd)! Aborting."; exit 1; }
-done
-
-sudo cp -r "${FILES[@]}" "$INSTALL_DIR/"
-sudo chown -R "$SERVICE_USER:gpio" "$INSTALL_DIR"
-
-if [ -f /tmp/settings.json.bak ]; then
-    sudo mv /tmp/settings.json.bak "$INSTALL_DIR/settings.json"
-    sudo chown "$SERVICE_USER:gpio" "$INSTALL_DIR/settings.json"
-fi
-
-# 4. Install system Python packages for mapped requirements
 declare -A apt_pkg_map
 for mapping in "${APT_PYTHON_MAP[@]}"; do
     py_pkg="${mapping%%:*}"
@@ -98,7 +125,7 @@ PY_PIP_REQS=()
 while IFS= read -r pkgline; do
     [[ -z "${pkgline// }" || "$pkgline" =~ ^# ]] && continue
     pkgname=$(echo "$pkgline" | awk -F'[<=>]' '{print tolower($1)}' | xargs)
-    if [[ -n "${apt_pkg_map[$pkgname]}" ]]; then
+    if [[ -n "${apt_pkg_map[$pkgname]:-}" ]]; then
         if [[ ! " ${APT_PKGS[*]} " =~ " ${apt_pkg_map[$pkgname]} " ]]; then
             APT_PKGS+=("${apt_pkg_map[$pkgname]}")
         fi
@@ -112,7 +139,6 @@ if [[ "${#APT_PKGS[@]}" -gt 0 ]]; then
     sudo apt-get install -y "${APT_PKGS[@]}"
 fi
 
-# 5. Create and install venv as $SERVICE_USER, only pip-install non-system requirements
 echo "Creating Python venv with system site packages and installing pip dependencies..."
 sudo -u "$SERVICE_USER" $PYTHON_BIN -m venv --system-site-packages "$VENV_DIR"
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --upgrade pip
@@ -125,9 +151,8 @@ else
     echo "No pip-only requirements to install."
 fi
 
-# 6. Create and enable systemd service
-echo "Creating systemd service /etc/systemd/system/$SERVICE_NAME.service..."
-sudo tee "/etc/systemd/system/$SERVICE_NAME.service" > /dev/null <<EOF
+echo "Creating systemd service $SYSTEMD_DIR/$SERVICE_NAME.service..."
+sudo tee "$SYSTEMD_DIR/$SERVICE_NAME.service" > /dev/null <<EOF
 [Unit]
 Description=Simple Timer Controller
 After=multi-user.target
@@ -151,4 +176,118 @@ sudo systemctl enable "$SERVICE_NAME"
 sudo systemctl restart "$SERVICE_NAME"
 echo "Check status with: sudo systemctl status $SERVICE_NAME"
 
-echo "Installation complete!"
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+WIFI_ENV="/boot/wifi.env"
+
+if [ -f "$WPA_CONF" ] && [ ! -f "$WIFI_ENV" ]; then
+    SSID=$(grep '^\s*ssid=' "$WPA_CONF" | head -n1 | cut -d'"' -f2)
+    PSK=$(grep '^\s*psk=' "$WPA_CONF" | head -n1 | cut -d'"' -f2)
+    if [ -n "$SSID" ] && [ -n "$PSK" ]; then
+        echo "#MODE=AP" | sudo tee "$WIFI_ENV" > /dev/null
+        echo "SSID=$SSID" | sudo tee -a "$WIFI_ENV" > /dev/null
+        echo "PSK=$PSK" | sudo tee -a "$WIFI_ENV" > /dev/null
+        sudo chmod 600 "$WIFI_ENV"
+        echo "Backed up current WiFi settings to $WIFI_ENV"
+    fi
+fi
+
+echo "Installing WiFi env update script and systemd service..."
+
+sudo tee "$BIN_DIR/apply_wifi_env.sh" > /dev/null <<'EOF'
+#!/bin/bash
+set -e
+
+WIFI_ENV="/boot/wifi.env"
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+HOSTAPD_CONF="/etc/hostapd/hostapd.conf"
+DNSMASQ_CONF="/etc/dnsmasq.d/simple-ap.conf"
+DHCPCD_CONF="/etc/dhcpcd.conf"
+
+cleanup_ap() {
+    sudo sed -i '/^interface wlan0/d' $DHCPCD_CONF
+    sudo sed -i '/^static ip_address=192\.168\.4\.1\/24/d' $DHCPCD_CONF
+    sudo sed -i '/^nohook wpa_supplicant/d' $DHCPCD_CONF
+    sudo rm -f $DNSMASQ_CONF
+}
+
+if [ -f "$WIFI_ENV" ]; then
+    MODE=$(grep -E '^[[:space:]]*MODE=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
+    SSID=$(grep -E '^[[:space:]]*SSID=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
+    PSK=$(grep -E '^[[:space:]]*PSK=' "$WIFI_ENV" | grep -v '^[[:space:]]*#' | cut -d'=' -f2-)
+    if [ "$MODE" = "AP" ]; then
+        echo "Switching to AP mode..."
+
+        cleanup_ap
+
+        echo "interface wlan0" | sudo tee -a $DHCPCD_CONF
+        echo "static ip_address=192.168.4.1/24" | sudo tee -a $DHCPCD_CONF
+        echo "nohook wpa_supplicant" | sudo tee -a $DHCPCD_CONF
+        sudo systemctl restart dhcpcd
+
+        cat > "$HOSTAPD_CONF" <<EOW
+interface=wlan0
+driver=nl80211
+ssid=$SSID
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0
+wpa=2
+wpa_passphrase=$PSK
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+EOW
+
+        cat > "$DNSMASQ_CONF" <<EOD
+interface=wlan0
+dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+EOD
+
+        sudo systemctl stop wpa_supplicant || true
+        sudo systemctl start hostapd
+        sudo systemctl restart dnsmasq
+    else
+        echo "Switching to WiFi client mode..."
+        cleanup_ap
+        cat > "$WPA_CONF" <<EOW
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=DE
+
+network={
+    ssid="$SSID"
+    psk="$PSK"
+}
+EOW
+        sudo systemctl stop hostapd || true
+        sudo systemctl restart wpa_supplicant
+        sudo systemctl restart dhcpcd
+    fi
+    chmod 600 "$WPA_CONF"
+    rm "$WIFI_ENV"
+fi
+EOF
+
+sudo chmod +x "$BIN_DIR/apply_wifi_env.sh"
+
+sudo tee "$SYSTEMD_DIR/apply-wifi-env.service" > /dev/null <<EOF
+[Unit]
+Description=Apply WiFi config from /boot/wifi.env at boot
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=$BIN_DIR/apply_wifi_env.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable apply-wifi-env.service
+
+echo "Installation complete! Reboot to apply network changes."
